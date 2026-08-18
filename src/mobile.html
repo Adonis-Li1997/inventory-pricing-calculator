@@ -57,16 +57,17 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    padding: 8px 12px;
-    font-size: 14px;
+    padding: 6px 10px;
+    font-size: 13px;
     color: #5a6c7d;
     background: none;
     border: none;
     cursor: pointer;
     margin-top: env(safe-area-inset-top);
+    font-weight: 500;
   }
-  .topbar-btn.left { left: 4px; }
-  .topbar-btn.right { right: 4px; }
+  .topbar-btn.left { left: 4px; color: #4a90d9; }
+  .topbar-btn.right { right: 4px; color: #e94560; font-weight: 600; }
 
   /* ===== 底部 Tab ===== */
   .tabbar {
@@ -314,6 +315,61 @@
     font-size: 10px;
     color: #95a5a6;
     margin-top: 3px;
+  }
+
+  /* 说明图标 & 弹窗 */
+  .tip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #bdc3c7;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+  .tip-modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .tip-modal-mask.show { display: flex; }
+  .tip-modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px;
+    max-width: 320px;
+    width: 100%;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #2c3e50;
+  }
+  .tip-modal h4 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    color: #2c3e50;
+  }
+  .tip-modal strong { color: #e67e22; }
+  .tip-modal-close {
+    margin-top: 16px;
+    width: 100%;
+    padding: 12px;
+    background: #3498db;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
   }
   .stage-badge {
     display: inline-block;
@@ -850,9 +906,9 @@
 
 <!-- 顶部栏 -->
 <div class="topbar">
-  <button class="topbar-btn left" onclick="showGuide()" id="topLeftBtn">❓</button>
+  <button class="topbar-btn left" onclick="showGuide()">操作说明</button>
   <div class="topbar-title" id="topbarTitle">📦 库存决策计算器</div>
-  <button class="topbar-btn right" onclick="resetAll()">重置</button>
+  <button class="topbar-btn right" id="topAuthBtn" onclick="showAuthInfo()" style="display:none;">—</button>
 </div>
 
 <!-- 滑动容器 -->
@@ -959,6 +1015,12 @@
 
       <div class="disclaimer">
         ⚠️ <strong>免责声明：</strong>本工具仅提供数学计算，所有输入和判断均由用户自行决定。结果仅供参考，不构成投资或经营建议。
+      </div>
+
+      <div style="text-align: center; padding: 16px 16px 0;">
+        <button onclick="resetAll()" style="width: 100%; padding: 14px; background: #f0f2f5; border: 1px solid #dce3eb; border-radius: 12px; font-size: 15px; color: #5a6c7d; cursor: pointer;">
+          🔄 重置所有数据
+        </button>
       </div>
 
     </div>
@@ -1089,8 +1151,6 @@ function updateTabUI() {
     el.classList.toggle('active', i === currentTab);
   });
   document.getElementById('topbarTitle').textContent = TAB_TITLES[currentTab];
-  const leftBtn = document.getElementById('topLeftBtn');
-  leftBtn.style.visibility = currentTab > 0 ? 'visible' : 'hidden';
 }
 
 // 触摸事件
@@ -1558,7 +1618,7 @@ function calculate() {
             <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${currentLoss > 0 ? '-'+fmt(currentLoss) : '+'+fmt(Math.abs(currentLoss))} 元</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">持有期望盈亏</div>
+            <div class="stat-label">持有期望盈亏<span class="tip-icon" onclick="showExpectedTip(${fmtInt(t)}, ${Math.round(p*100)}, ${fmt(profitIfRise)}, ${fmt(lossIfNot)}, ${fmt(expectedValue)})">?</span></div>
             <div class="stat-value ${expectedValue < 0 ? 'loss' : 'profit'}">${expectedValue < 0 ? '-'+fmt(Math.abs(expectedValue)) : '+'+fmt(expectedValue)} 元</div>
           </div>
           <div class="stat-item">
@@ -1851,15 +1911,15 @@ function closeGuide() {
 
 function updateAuthBadge() {
   const info = _authCheck();
-  const badge = document.getElementById('authBadge');
+  const btn = document.getElementById('topAuthBtn');
   if (!info) {
-    badge.style.display = 'none';
+    btn.style.display = 'none';
     return;
   }
   const daysLeft = Math.ceil((info.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
   const typeName = info.type === '7' ? '7天卡' : '月卡';
-  document.getElementById('authBadgeText').textContent = typeName + ' · 剩' + daysLeft + '天';
-  badge.style.display = 'block';
+  btn.textContent = typeName + '·剩' + daysLeft + '天';
+  btn.style.display = 'block';
 }
 
 function showAuthInfo() {
@@ -1897,7 +1957,31 @@ function showAuthInfo() {
     enterApp();
   }
 })();
+// 持有期望盈亏说明弹窗
+function showExpectedTip(days, probPct, profitRise, lossNot, expectedVal) {
+  const profitRiseStr = profitRise >= 0 ? '+' + profitRise.toFixed(2) : profitRise.toFixed(2);
+  const lossNotStr = lossNot >= 0 ? '+' + lossNot.toFixed(2) : lossNot.toFixed(2);
+  const expectedStr = expectedVal >= 0 ? '+' + expectedVal.toFixed(2) : expectedVal.toFixed(2);
+  document.getElementById('tipModalBody').innerHTML = `
+    <h4>持有期望盈亏</h4>
+    <p><strong>大白话：</strong>假设等 <strong>${days}</strong> 天后卖掉：</p>
+    <p>• 有 <strong>${probPct}%</strong> 概率涨到目标价，盈亏 <strong>${profitRiseStr}</strong> 元</p>
+    <p>• 有 <strong>${100 - probPct}%</strong> 概率没涨到（还是按当前价卖），盈亏 <strong>${lossNotStr}</strong> 元</p>
+    <p style="margin-top:12px;">把两种结果按概率加权平均，就是 <strong>${expectedStr} 元</strong>。</p>
+    <p style="color:#7f8c8d;font-size:13px;">它比「现在卖」高 → 值得等；低 → 不值得等。</p>
+    <button class="tip-modal-close" onclick="closeTipModal()">知道了</button>
+  `;
+  document.getElementById('tipModalMask').classList.add('show');
+}
+function closeTipModal() {
+  document.getElementById('tipModalMask').classList.remove('show');
+}
 </script>
+
+<!-- 说明弹窗 -->
+<div class="tip-modal-mask" id="tipModalMask" onclick="if(event.target===this)closeTipModal()">
+  <div class="tip-modal" id="tipModalBody"></div>
+</div>
 
 </body>
 </html>

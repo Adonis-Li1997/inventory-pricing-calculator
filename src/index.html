@@ -193,6 +193,68 @@
     margin-top: 2px;
   }
 
+  /* 悬停提示 */
+  .stat-item.has-tip {
+    cursor: help;
+    position: relative;
+  }
+  .stat-item.has-tip:hover {
+    background: #eef2f7;
+  }
+  .tip-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
+    text-align: center;
+    border-radius: 50%;
+    background: #bdc3c7;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .stat-item.has-tip:hover .tip-icon {
+    background: #3498db;
+  }
+  .tip-bubble {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    z-index: 100;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: 260px;
+    padding: 10px 12px;
+    background: #2c3e50;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.6;
+    border-radius: 8px;
+    text-align: left;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .tip-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #2c3e50;
+  }
+  .stat-item.has-tip:hover .tip-bubble {
+    visibility: visible;
+    opacity: 1;
+  }
+  .tip-bubble strong {
+    color: #f1c40f;
+    font-weight: 600;
+  }
+
   /* 情景表 */
   .scenario-table {
     width: 100%;
@@ -402,6 +464,133 @@
     backdrop-filter: blur(10px);
   }
   .auth-badge:hover { color: #4a90d9; }
+
+  /* 帮助按钮 */
+  .help-btn {
+    position: fixed;
+    top: 12px;
+    left: 16px;
+    font-size: 11px;
+    color: #7f8c8d;
+    z-index: 100;
+    cursor: pointer;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    border: none;
+    transition: color 0.2s;
+  }
+  .help-btn:hover { color: #4a90d9; }
+
+  /* 操作说明弹窗 */
+  .guide-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .guide-overlay.hidden { display: none; }
+  .guide-box {
+    background: #fff;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 560px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 28px;
+    position: relative;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .guide-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 32px; height: 32px;
+    border: none;
+    background: #f0f2f5;
+    border-radius: 50%;
+    font-size: 18px;
+    color: #7f8c8d;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .guide-close:hover { background: #e8ebef; }
+  .guide-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-right: 40px;
+    color: #1d1d1f;
+  }
+  .guide-section {
+    margin-bottom: 22px;
+  }
+  .guide-section h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .guide-section p, .guide-section li {
+    font-size: 13px;
+    color: #5a6c7d;
+    line-height: 1.7;
+  }
+  .guide-section ul {
+    padding-left: 20px;
+    margin: 0;
+  }
+  .guide-section .tip {
+    background: #f0f7ff;
+    border-left: 3px solid #4a90d9;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: #3a5a7d;
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+  .guide-section .warn {
+    background: #fff5e6;
+    border-left: 3px solid #ff9500;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: #996600;
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+  .guide-footer {
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px solid #f0f2f5;
+    margin-top: 8px;
+  }
+  .guide-footer button {
+    padding: 10px 32px;
+    background: linear-gradient(135deg, #4a90d9, #357abd);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .guide-footer button:hover {
+    box-shadow: 0 4px 12px rgba(74,144,217,0.3);
+  }
+  .guide-footer button:active { transform: translateY(1px); }
 </style>
 </head>
 <body>
@@ -431,6 +620,79 @@
 <!-- 授权状态角标 -->
 <div class="auth-badge" id="authBadge" style="display:none;" onclick="showAuthInfo()">
   <span id="authBadgeText">已激活</span>
+</div>
+
+<!-- 操作说明按钮 -->
+<button class="help-btn" id="helpBtn" style="display:none;" onclick="showGuide()">
+  ❓ 操作说明
+</button>
+
+<!-- 操作说明弹窗 -->
+<div class="guide-overlay hidden" id="guideOverlay" onclick="if(event.target===this)closeGuide()">
+  <div class="guide-box">
+    <button class="guide-close" onclick="closeGuide()">✕</button>
+    <div class="guide-title">📖 产品操作说明</div>
+
+    <div class="guide-section">
+      <h3>🎯 这是什么工具？</h3>
+      <p>一个帮你判断「压在仓库的货，现在就卖还是继续持有等涨价」的决策计算器。从概率期望和仓租死线两个维度给你参考。</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>📝 怎么使用？三步搞定</h3>
+      <ul>
+        <li><strong>第一步：</strong>输入基础参数 — 进货成本、入库运费、当前可售价</li>
+        <li><strong>第二步：</strong>填写仓储信息 — 入库日期、体积档位、最大亏损比例</li>
+        <li><strong>第三步：</strong>设置涨价预期 — 目标价、等待天数、涨价把握</li>
+      </ul>
+      <div class="tip">💡 所有输入会自动保存在本地，刷新页面不会丢失。</div>
+    </div>
+
+    <div class="guide-section">
+      <h3>📊 结果怎么看？</h3>
+      <ul>
+        <li><strong>决策结论卡：</strong>🟢 建议持有 / 🔴 建议现在就卖</li>
+        <li><strong>关键数据：</strong>库龄、已付仓租、当前盈亏、持有期望、死线日期</li>
+        <li><strong>死线提醒：</strong>✅ 安全 / ⏰ 注意（7天内） / ⚠️ 危险（已超过）</li>
+        <li><strong>情景对比表：</strong>7/15/30/45/60/90天持有结果对比</li>
+      </ul>
+    </div>
+
+    <div class="guide-section">
+      <h3>🧮 核心决策逻辑</h3>
+      <p>持有期望收益 = 涨价概率 × 涨价后利润 + (1−涨价概率) × 没涨到的亏损</p>
+      <p>持有期望 &gt; 现在卖出收益 → 建议持有；否则 → 建议卖出</p>
+      <div class="warn">⚠️ 死线只是仓租角度的提醒，不会推翻核心决策结论。最终决策请结合实际情况判断。</div>
+    </div>
+
+    <div class="guide-section">
+      <h3>📦 仓租计费规则（dewu）</h3>
+      <ul>
+        <li>第 1~35 天：免费</li>
+        <li>第 36~90 天：标准费率（小件0.15/中件0.20/大件0.30 元/天）</li>
+        <li>第 91 天起：高费率（小件0.45/中件0.50/大件0.75 元/天）</li>
+      </ul>
+    </div>
+
+    <div class="guide-section">
+      <h3>💡 使用小贴士</h3>
+      <ul>
+        <li>「涨价把握」建议结合历史价格趋势和节日情况判断</li>
+        <li>薄利多销品建议把「最大亏损比例」设低一点（5%~10%）</li>
+        <li>高利润限量款可以设高一点（30%~50%），多等等</li>
+        <li>有明确节日周期的，节前7天就是事实上的死线</li>
+      </ul>
+    </div>
+
+    <div class="guide-section">
+      <h3>🔄 重置数据</h3>
+      <p>点击输入区右上角「重置」按钮，可清空所有输入，恢复默认状态。</p>
+    </div>
+
+    <div class="guide-footer">
+      <button onclick="closeGuide()">我知道了</button>
+    </div>
+  </div>
 </div>
 
 <div class="container">
@@ -882,9 +1144,16 @@ function calculate() {
           <div class="stat-label">现在卖（不算仓租）</div>
           <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${currentLoss > 0 ? '-'+fmt(currentLoss) : '+'+fmt(Math.abs(currentLoss))} 元</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-label">持有期望盈亏</div>
+        <div class="stat-item has-tip">
+          <div class="stat-label">持有期望盈亏<span class="tip-icon">?</span></div>
           <div class="stat-value ${expectedValue < 0 ? 'loss' : 'profit'}">${expectedValue < 0 ? '-'+fmt(Math.abs(expectedValue)) : '+'+fmt(expectedValue)} 元</div>
+          <div class="tip-bubble">
+            <strong>大白话：</strong>假设等 ${fmtInt(t)} 天后卖掉，<br>
+            有 <strong>${Math.round(p*100)}%</strong> 概率涨到目标价，赚/亏 <strong>${profitIfRise >= 0 ? '+' : ''}${fmt(profitIfRise)}</strong> 元；<br>
+            有 <strong>${Math.round((1-p)*100)}%</strong> 概率没涨到（还是按当前价卖），赚/亏 <strong>${lossIfNot >= 0 ? '+' : ''}${fmt(lossIfNot)}</strong> 元。<br><br>
+            把两种结果按概率加权平均，就是这个数。<br>
+            它比「现在卖」高 → 值得等；低 → 不值得等。
+          </div>
         </div>
         <div class="stat-item">
           <div class="stat-label">等待期仓租（${t}天）</div>
@@ -1153,9 +1422,28 @@ function activateAuth() {
 function enterApp() {
   document.getElementById('authOverlay').classList.add('hidden');
   updateAuthBadge();
+  // 显示帮助按钮
+  document.getElementById('helpBtn').style.display = 'block';
   // 初始化工具
   loadData();
   calculate();
+  // 首次激活弹出操作说明
+  const info = _authGetInfo();
+  if (info && !info._guideShown) {
+    info._guideShown = true;
+    _authSaveInfo(info);
+    setTimeout(showGuide, 500);
+  }
+}
+
+// 操作说明弹窗
+function showGuide() {
+  document.getElementById('guideOverlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeGuide() {
+  document.getElementById('guideOverlay').classList.add('hidden');
+  document.body.style.overflow = '';
 }
 
 function updateAuthBadge() {
