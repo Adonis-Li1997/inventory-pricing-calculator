@@ -535,11 +535,119 @@
     right: 48px;
     font-size: 10px;
     color: #7f8c8d;
-    z-index: 90;
+    z-index: 101;
     padding: 3px 10px;
     background: rgba(255,255,255,0.9);
     border-radius: 20px;
     border: 1px solid #eef0f3;
+  }
+
+  /* 操作说明弹窗 */
+  .guide-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 300;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .guide-overlay.hidden { display: none; }
+  .guide-box {
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 24px 20px 32px;
+    position: relative;
+    animation: slideUp 0.3s ease;
+    -webkit-overflow-scrolling: touch;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .guide-handle {
+    width: 40px; height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+  .guide-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 32px; height: 32px;
+    border: none;
+    background: #f0f2f5;
+    border-radius: 50%;
+    font-size: 16px;
+    color: #7f8c8d;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .guide-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-right: 40px;
+    color: #1d1d1f;
+  }
+  .guide-section {
+    margin-bottom: 20px;
+  }
+  .guide-section h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .guide-section p, .guide-section li {
+    font-size: 13px;
+    color: #5a6c7d;
+    line-height: 1.7;
+  }
+  .guide-section ul {
+    padding-left: 18px;
+    margin: 0;
+  }
+  .guide-section .tip {
+    background: #f0f7ff;
+    border-left: 3px solid #4a90d9;
+    padding: 10px 12px;
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    color: #3a5a7d;
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+  .guide-section .warn {
+    background: #fff5e6;
+    border-left: 3px solid #ff9500;
+    padding: 10px 12px;
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    color: #996600;
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+  .guide-footer {
+    text-align: center;
+    padding-top: 16px;
+    border-top: 1px solid #f0f2f5;
+    margin-top: 8px;
+  }
+  .guide-footer button {
+    padding: 12px 48px;
+    background: linear-gradient(135deg, #4a90d9, #357abd);
+    color: #fff;
+    border: none;
+    border-radius: 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
   }
 
   /* ===== 自定义数字键盘 ===== */
@@ -666,9 +774,83 @@
   <span id="authBadgeText">已激活</span>
 </div>
 
+<!-- 操作说明弹窗 -->
+<div class="guide-overlay hidden" id="guideOverlay" onclick="if(event.target===this)closeGuide()">
+  <div class="guide-box">
+    <div class="guide-handle"></div>
+    <button class="guide-close" onclick="closeGuide()">✕</button>
+    <div class="guide-title">📖 产品操作说明</div>
+
+    <div class="guide-section">
+      <h3>🎯 这是什么工具？</h3>
+      <p>一个帮你判断「压在仓库的货，现在就卖还是继续持有等涨价」的决策计算器。从概率期望和仓租死线两个维度给你参考。</p>
+    </div>
+
+    <div class="guide-section">
+      <h3>📝 怎么使用？</h3>
+      <ul>
+        <li><strong>输入页：</strong>填成本、售价、仓储信息、涨价预期</li>
+        <li><strong>结果页：</strong>看决策结论和关键数据</li>
+        <li><strong>对比页：</strong>查看多情景持有对比</li>
+      </ul>
+      <div class="tip">💡 所有输入自动保存，刷新不丢数据。左右滑动或点底部 Tab 切换页面。</div>
+    </div>
+
+    <div class="guide-section">
+      <h3>📊 结果怎么看？</h3>
+      <ul>
+        <li><strong>决策结论卡：</strong>🟢 建议持有 / 🔴 建议现在就卖</li>
+        <li><strong>关键数据：</strong>库龄、已付仓租、当前盈亏、持有期望、死线</li>
+        <li><strong>死线提醒：</strong>✅ 安全 / ⏰ 注意 / ⚠️ 危险</li>
+        <li><strong>情景对比表：</strong>7/15/30/45/60/90天持有结果</li>
+      </ul>
+    </div>
+
+    <div class="guide-section">
+      <h3>🧮 核心决策逻辑</h3>
+      <p>持有期望 = 涨价概率×涨价后利润 + (1−概率)×没涨到的亏损</p>
+      <p>持有期望 &gt; 现在卖出收益 → 建议持有；否则 → 建议卖出</p>
+      <div class="warn">⚠️ 死线只是仓租角度的提醒，不会推翻核心决策。最终请自行判断。</div>
+    </div>
+
+    <div class="guide-section">
+      <h3>📦 仓租计费规则（dewu）</h3>
+      <ul>
+        <li>第 1~35 天：免费</li>
+        <li>第 36~90 天：标准费率</li>
+        <li>第 91 天起：高费率（约3倍）</li>
+      </ul>
+    </div>
+
+    <div class="guide-section">
+      <h3>⌨️ 数字键盘使用技巧</h3>
+      <ul>
+        <li>点击数字输入框弹出键盘</li>
+        <li>「C」清空、「←」退格</li>
+        <li>「+1」「+10」快捷加值</li>
+        <li>点键盘外区域收起键盘</li>
+      </ul>
+    </div>
+
+    <div class="guide-section">
+      <h3>💡 使用小贴士</h3>
+      <ul>
+        <li>「涨价把握」结合历史价格和节日判断</li>
+        <li>薄利品设低亏损比例（5%~10%）</li>
+        <li>高利润款可设高一点（30%~50%）</li>
+        <li>节日商品节前7天就是事实上的死线</li>
+      </ul>
+    </div>
+
+    <div class="guide-footer">
+      <button onclick="closeGuide()">我知道了</button>
+    </div>
+  </div>
+</div>
+
 <!-- 顶部栏 -->
 <div class="topbar">
-  <button class="topbar-btn left" onclick="goToTab(0)" id="topLeftBtn" style="visibility:hidden;">←</button>
+  <button class="topbar-btn left" onclick="showGuide()" id="topLeftBtn">❓</button>
   <div class="topbar-title" id="topbarTitle">📦 库存决策计算器</div>
   <button class="topbar-btn right" onclick="resetAll()">重置</button>
 </div>
@@ -1648,6 +1830,23 @@ function enterApp() {
   loadData();
   calculate();
   updateTabUI();
+  // 首次激活弹出操作说明
+  var info = _authGetInfo();
+  if (info && !info._guideShown) {
+    info._guideShown = true;
+    _authSaveInfo(info);
+    setTimeout(showGuide, 500);
+  }
+}
+
+// 操作说明弹窗
+function showGuide() {
+  document.getElementById('guideOverlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeGuide() {
+  document.getElementById('guideOverlay').classList.add('hidden');
+  document.body.style.overflow = '';
 }
 
 function updateAuthBadge() {
