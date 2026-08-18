@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>库存处理决策计算器</title>
+<script>
+  // 移动端自动跳转到 mobile.html
+  (function() {
+    if (window.location.pathname.endsWith('/mobile.html')) return;
+    var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                || (window.innerWidth <= 768);
+    if (isMobile) {
+      var path = window.location.pathname;
+      if (path.endsWith('/') || path.endsWith('/index.html') || path === '') {
+        window.location.replace(path.replace(/(index\.html)?$/, 'mobile.html'));
+      }
+    }
+  })();
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f6fa;
+    color: #2c3e50;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 24px;
+    color: #1a1a2e;
+  }
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 768px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .card h2 {
+    font-size: 16px;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f2f5;
+    color: #34495e;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: #5a6c7d;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .form-group .hint {
+    font-size: 11px;
+    color: #95a5a6;
+    font-weight: normal;
+    margin-left: 6px;
+  }
+  .form-group input[type="number"],
+  .form-group input[type="date"],
+  .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #dce3eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    background: #fff;
+  }
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #4a90d9;
+  }
+  .size-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .size-option {
+    padding: 10px 8px;
+    border: 1px solid #dce3eb;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    background: #fff;
+  }
+  .size-option:hover { border-color: #4a90d9; }
+  .size-option.active {
+    background: #e8f0fe;
+    border-color: #4a90d9;
+    color: #1a73e8;
+    font-weight: 600;
+  }
+  .size-option .size-name { font-size: 13px; margin-bottom: 2px; }
+  .size-option .size-range { font-size: 10px; color: #95a5a6; }
+  .size-option.active .size-range { color: #6a9ad9; }
+
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .slider-group input[type="range"] {
+    flex: 1;
+    height: 4px;
+    cursor: pointer;
+  }
+  .slider-value {
+    min-width: 45px;
+    text-align: right;
+    font-weight: 600;
+    color: #4a90d9;
+    font-size: 14px;
+  }
+
+  /* 结论卡 */
+  .verdict {
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .verdict.hold {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  }
+  .verdict.sell {
+    background: linear-gradient(135deg, #ffebee, #ffcdd2);
+  }
+  .verdict-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+  .verdict-text {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .verdict.hold .verdict-text { color: #2e7d32; }
+  .verdict.sell .verdict-text { color: #c62828; }
+  .verdict-reason {
+    font-size: 13px;
+    color: #555;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .stat-item {
+    background: #f8f9fb;
+    padding: 12px;
+    border-radius: 8px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+  .stat-value.loss { color: #e74c3c; }
+  .stat-value.profit { color: #27ae60; }
+  .stat-value.warning { color: #f39c12; }
+  .stat-sub {
+    font-size: 10px;
+    color: #95a5a6;
+    margin-top: 2px;
+  }
+
+  /* 情景表 */
+  .scenario-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .scenario-table th, .scenario-table td {
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+  }
+  .scenario-table th {
+    background: #f8f9fb;
+    font-weight: 600;
+    color: #5a6c7d;
+    font-size: 12px;
+  }
+  .scenario-table tr:hover {
+    background: #fafbfc;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag.hold { background: #e8f5e9; color: #2e7d32; }
+  .tag.sell { background: #ffebee; color: #c62828; }
+  .tag.warn { background: #fff8e1; color: #f57f17; }
+
+  .deadline-banner {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #fff8e1;
+    border-left: 4px solid #fbc02d;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #795548;
+  }
+  .deadline-banner.danger {
+    background: #ffebee;
+    border-left-color: #e53935;
+    color: #b71c1c;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 20px 0 12px;
+    color: #34495e;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .formula-note {
+    margin-top: 14px;
+    padding: 12px;
+    background: #f0f7ff;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #4a6fa5;
+    line-height: 1.7;
+  }
+  .formula-note code {
+    background: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+  }
+  .storage-table-note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #6b7c8d;
+    line-height: 1.6;
+  }
+  .storage-table-note table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+  }
+  .storage-table-note th, .storage-table-note td {
+    border: 1px solid #d0dce8;
+    padding: 4px 6px;
+    text-align: center;
+    font-size: 10px;
+  }
+  .storage-table-note th {
+    background: #e8f0fe;
+    color: #4a6fa5;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #bdc3c7;
+    font-size: 14px;
+  }
+  .stage-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #e8f0fe;
+    color: #1a73e8;
+  }
+
+  /* ===== 授权层 ===== */
+  .auth-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .auth-overlay.hidden { display: none; }
+  .auth-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .auth-icon { font-size: 52px; margin-bottom: 12px; }
+  .auth-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 6px;
+  }
+  .auth-subtitle {
+    font-size: 13px;
+    color: #7f8c8d;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .auth-input {
+    width: 100%;
+    height: 50px;
+    padding: 0 16px;
+    border: 2px solid #dce3eb;
+    border-radius: 10px;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-align: center;
+    text-transform: uppercase;
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+    transition: border-color 0.2s;
+    margin-bottom: 14px;
+  }
+  .auth-input:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+  .auth-btn {
+    width: 100%;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+  }
+  .auth-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+  .auth-btn:active { transform: translateY(0); }
+  .auth-error {
+    color: #e74c3c;
+    font-size: 13px;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+  .auth-info {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f2f5;
+    font-size: 12px;
+    color: #95a5a6;
+    line-height: 1.7;
+    text-align: left;
+  }
+  .auth-info strong { color: #5a6c7d; }
+
+  .auth-badge {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    font-size: 11px;
+    color: #7f8c8d;
+    z-index: 100;
+    cursor: pointer;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+  }
+  .auth-badge:hover { color: #4a90d9; }
+</style>
+</head>
+<body>
+
+<!-- 授权层 -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-icon">🔐</div>
+    <div class="auth-title">库存处理决策计算器</div>
+    <div class="auth-subtitle">
+      请输入授权码激活使用<br>
+      激活后永久绑定此设备
+    </div>
+    <input type="text" class="auth-input" id="authCode" placeholder="请输入8位授权码" maxlength="8">
+    <button class="auth-btn" onclick="activateAuth()">立即激活</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-info">
+      <strong>💡 使用说明：</strong><br>
+      • 授权码需购买获取<br>
+      • 一个授权码可激活一台设备<br>
+      • 激活后从当日起计算有效期<br>
+      • 请妥善保管您的授权码
+    </div>
+  </div>
+</div>
+
+<!-- 授权状态角标 -->
+<div class="auth-badge" id="authBadge" style="display:none;" onclick="showAuthInfo()">
+  <span id="authBadgeText">已激活</span>
+</div>
+
+<div class="container">
+  <h1>📦 库存处理决策计算器</h1>
+
+  <div class="main-grid">
+    <!-- 输入区 -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+        <h2 style="margin: 0; padding: 0; border: none; font-size: 16px; color: #34495e;">📝 输入参数</h2>
+        <button onclick="resetAll()" style="padding: 6px 14px; background: #f0f2f5; border: 1px solid #dce3eb; border-radius: 6px; font-size: 12px; color: #5a6c7d; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e8ebef'" onmouseout="this.style.background='#f0f2f5'">
+          🔄 重置
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>进货成本（元）<span class="hint">单件拿货价</span></label>
+        <input type="number" id="costPrice" step="0.01" placeholder="例如：25.00" oninput="saveData(); calculate()">
+      </div>
+
+      <div class="form-group">
+        <label>入库运费（元）<span class="hint">发到仓库的运费，摊到单件</span></label>
+        <input type="number" id="shippingCost" step="0.01" value="0" placeholder="例如：2.00" oninput="saveData(); calculate()">
+      </div>
+
+      <div class="form-group">
+        <label>当前可售价（元）<span class="hint">现在马上能卖的价格</span></label>
+        <input type="number" id="currentPrice" step="0.01" placeholder="例如：22.00" oninput="saveData(); calculate()">
+      </div>
+
+      <div style="border-top: 2px solid #f0f2f5; margin: 18px 0; padding-top: 16px;">
+        <div class="section-title" style="margin: 0 0 14px;">🏭 仓储信息</div>
+
+        <div class="form-group">
+          <label>入库日期<span class="hint">货到仓库的日期</span></label>
+          <input type="date" id="inDate" oninput="saveData(); calculate()">
+        </div>
+
+        <div class="form-group">
+          <label>商品体积档位</label>
+          <div class="size-options">
+            <div class="size-option active" data-size="small" onclick="selectSize('small')">
+              <div class="size-name">小件</div>
+              <div class="size-range">≤0.005m³</div>
+            </div>
+            <div class="size-option" data-size="medium" onclick="selectSize('medium')">
+              <div class="size-name">中件</div>
+              <div class="size-range">0.005~0.02m³</div>
+            </div>
+            <div class="size-option" data-size="large" onclick="selectSize('large')">
+              <div class="size-name">大件</div>
+              <div class="size-range">>0.02m³</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>最大可接受亏损比例（%）<span class="hint">亏到总成本的这个比例就止损</span></label>
+          <input type="number" id="maxLossRatio" step="1" min="1" max="100" value="5" oninput="saveData(); calculate()">
+        </div>
+
+        <div class="storage-table-note">
+          <strong>📋 dewu仓储费率参考：</strong>
+          <table>
+            <tr>
+              <th>库龄</th>
+              <th>小件</th>
+              <th>中件</th>
+              <th>大件</th>
+            </tr>
+            <tr>
+              <td>≤35天</td>
+              <td colspan="3">免费</td>
+            </tr>
+            <tr>
+              <td>36~90天</td>
+              <td>0.15</td>
+              <td>0.20</td>
+              <td>0.30</td>
+            </tr>
+            <tr>
+              <td>>90天</td>
+              <td>0.45</td>
+              <td>0.50</td>
+              <td>0.75</td>
+            </tr>
+          </table>
+          单位：元/件/天
+        </div>
+      </div>
+
+      <div style="border-top: 2px solid #f0f2f5; margin: 18px 0; padding-top: 16px;">
+        <div class="section-title" style="margin: 0 0 14px;">📈 涨价预期</div>
+
+        <div class="form-group">
+          <label>预期涨价后价格（元）<span class="hint">你觉得能涨到多少</span></label>
+          <input type="number" id="expectedPrice" step="0.01" placeholder="例如：30.00" oninput="saveData(); calculate()">
+        </div>
+
+        <div class="form-group">
+          <label>预期等待天数（天）<span class="hint">估计还要等多久</span></label>
+          <input type="number" id="expectedDays" step="1" placeholder="例如：30" oninput="saveData(); calculate()">
+        </div>
+
+        <div class="form-group">
+          <label>涨价把握<span class="hint">建议结合历史价格趋势和节日情况判断</span></label>
+          <div class="slider-group">
+            <input type="range" id="probability" min="0" max="100" value="70" oninput="updateSlider(); saveData(); calculate()">
+            <span class="slider-value" id="probValue">70%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula-note">
+        💡 <strong>决策核心：</strong><br>
+        <code>涨价概率 × 涨价幅度 &gt; 等待期间仓租成本</code> → 持有<br>
+        否则 → 现在就卖<br><br>
+        ⏰ <strong>仓租死线（纯仓租角度的提醒，和当前盈亏无关）：</strong><br>
+        按阶梯费率算（前35天免费，36~90天标准价，90天后高价）：<br>
+        仓租累计达到「总成本 × 亏损比例」的那天就是死线
+      </div>
+
+      <div style="margin-top:14px; padding:10px 12px; background:#fff8e1; border-radius:8px; font-size:11px; color:#795548; line-height:1.6;">
+        ⚠️ <strong>免责声明：</strong>本工具仅提供数学计算能力，所有输入和判断均由用户自行决定。计算结果仅供参考，不构成任何投资或经营建议，也不对最终盈亏结果负责。请结合实际情况谨慎决策。
+      </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div class="card">
+      <h2>🎯 决策结果</h2>
+      <div id="resultArea">
+        <div class="empty-state">请先填写左侧参数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 情景对比 -->
+  <div class="card">
+    <h2>📊 情景对比：持有不同天数的结果</h2>
+    <div id="scenarioArea">
+      <div class="empty-state">请先填写进货成本、当前售价和预期涨价后价格</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 得物阶梯仓租费率表
+const STORAGE_RATES = {
+  small:  { stage1: 0,    stage2: 0.15, stage3: 0.15, stage4: 0.45 },
+  medium: { stage1: 0,    stage2: 0.20, stage3: 0.20, stage4: 0.50 },
+  large:  { stage1: 0,    stage2: 0.30, stage3: 0.30, stage4: 0.75 }
+};
+
+let currentSize = 'small';
+
+// 本地存储 key
+const STORAGE_KEY = 'inventory_calc_data';
+
+// 默认值
+const DEFAULTS = {
+  costPrice: '',
+  shippingCost: '0',
+  currentPrice: '',
+  inDate: '',
+  size: 'small',
+  maxLossRatio: '5',
+  expectedPrice: '',
+  expectedDays: '',
+  probability: '70'
+};
+
+function selectSize(size) {
+  currentSize = size;
+  document.querySelectorAll('.size-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.size === size);
+  });
+  saveData();
+  calculate();
+}
+
+// 保存数据到 localStorage
+function saveData() {
+  const data = {
+    costPrice: document.getElementById('costPrice').value,
+    shippingCost: document.getElementById('shippingCost').value,
+    currentPrice: document.getElementById('currentPrice').value,
+    inDate: document.getElementById('inDate').value,
+    size: currentSize,
+    maxLossRatio: document.getElementById('maxLossRatio').value,
+    expectedPrice: document.getElementById('expectedPrice').value,
+    expectedDays: document.getElementById('expectedDays').value,
+    probability: document.getElementById('probability').value
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+
+// 从 localStorage 加载数据
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    const data = JSON.parse(saved);
+
+    if (data.costPrice !== undefined)    document.getElementById('costPrice').value = data.costPrice;
+    if (data.shippingCost !== undefined) document.getElementById('shippingCost').value = data.shippingCost;
+    if (data.currentPrice !== undefined) document.getElementById('currentPrice').value = data.currentPrice;
+    if (data.inDate !== undefined)       document.getElementById('inDate').value = data.inDate;
+    if (data.maxLossRatio !== undefined) document.getElementById('maxLossRatio').value = data.maxLossRatio;
+    if (data.expectedPrice !== undefined) document.getElementById('expectedPrice').value = data.expectedPrice;
+    if (data.expectedDays !== undefined) document.getElementById('expectedDays').value = data.expectedDays;
+    if (data.probability !== undefined) {
+      document.getElementById('probability').value = data.probability;
+      document.getElementById('probValue').textContent = data.probability + '%';
+    }
+    if (data.size !== undefined) {
+      currentSize = data.size;
+      document.querySelectorAll('.size-option').forEach(el => {
+        el.classList.toggle('active', el.dataset.size === data.size);
+      });
+    }
+  } catch(e) {}
+}
+
+// 重置所有数据
+function resetAll() {
+  if (!confirm('确定要清空所有输入吗？')) return;
+
+  document.getElementById('costPrice').value = DEFAULTS.costPrice;
+  document.getElementById('shippingCost').value = DEFAULTS.shippingCost;
+  document.getElementById('currentPrice').value = DEFAULTS.currentPrice;
+  document.getElementById('inDate').value = DEFAULTS.inDate;
+  document.getElementById('maxLossRatio').value = DEFAULTS.maxLossRatio;
+  document.getElementById('expectedPrice').value = DEFAULTS.expectedPrice;
+  document.getElementById('expectedDays').value = DEFAULTS.expectedDays;
+  document.getElementById('probability').value = DEFAULTS.probability;
+  document.getElementById('probValue').textContent = DEFAULTS.probability + '%';
+
+  currentSize = DEFAULTS.size;
+  document.querySelectorAll('.size-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.size === DEFAULTS.size);
+  });
+
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch(e) {}
+
+  calculate();
+}
+
+function updateSlider() {
+  document.getElementById('probValue').textContent = document.getElementById('probability').value + '%';
+}
+
+function fmt(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return n.toFixed(2);
+}
+function fmtInt(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return Math.round(n).toString();
+}
+
+// 计算从入库后第 startDay 天到第 endDay 天（含两端，1-based，含）的总仓租
+// 规则：
+//   - 库龄 = 入库后的天数（第1天 = 入库当天）
+//   - 出价天数 = 出价后的天数
+//   - 免费：库龄 ≤ 35天 且 出价天数 ≤ 14天
+//   - 二阶段（stage2）：库龄 ≤ 35天 且 出价天数 > 14天  → 但实现上和stage3同价
+//   - 三阶段（stage3）：库龄 36~90天
+//   - 四阶段（stage4）：库龄 > 90天
+//
+// 简化理解：
+//   计费从 max(库龄第15天且已出价, 库龄第1天如果出价在入库前) 开始？
+//   重新解读表格：
+//     第一行: 库龄≤35 且 出价≤14天 → 免费
+//     第二行: 库龄≤35 且 出价>14天 → 计费（标准价）
+//     第三行: 库龄36~90 → 计费（标准价，不管出价）
+//     第四行: 库龄>90 → 计费（高价）
+//
+//   所以"开始计费的那一天" = max(出价后第15天, 1)，且如果出价≤入库日则从第1天开始？
+//   不对：出价天数是从出价日期开始算的。如果入库后第5天出价，那么：
+//     库龄第5天 = 出价第1天
+//     库龄第18天 = 出价第14天（最后免费天）
+//     库龄第19天 = 出价第15天（开始计费，标准价）
+//     库龄第36~90天 = 标准价（和上面同价，所以没差别）
+//     库龄第91天起 = 高价
+//
+//   结论：开始计费日 = 出价日 + 14天（即出价后第15天），但库龄前35天和36-90天价格一样，所以分界点实际只有两个：
+//     - 计费起始日（出价后第15天，对应库龄 = 出价日偏移 + 14）
+//     - 库龄第91天（涨价）
+//
+//   但库龄≤35且出价>14天 与 库龄36-90天 价格相同，所以从计费角度看：
+//     免费期：出价后14天内（且库龄≤35，但如果出价晚到库龄都快35了，免费期其实更短）
+//     标准价：从出价第15天 到 库龄第90天
+//     高价：库龄第91天起
+
+function calcStorage(startDay, endDay, rates) {
+  // startDay, endDay: 库龄天数（1-based，含两端），endDay >= startDay
+  // 规则：≤35天免费，36~90天标准价，>90天高价
+  if (endDay < startDay) return 0;
+
+  let total = 0;
+  for (let d = startDay; d <= endDay; d++) {
+    if (d <= 35) {
+      total += rates.stage1; // 免费 0
+    } else if (d <= 90) {
+      total += rates.stage2; // 标准价
+    } else {
+      total += rates.stage4; // 高价
+    }
+  }
+  return total;
+}
+
+// 计算某一天的日仓租单价
+function getDailyRate(day, rates) {
+  if (day < 1) return 0;
+  if (day <= 35) return rates.stage1;
+  if (day <= 90) return rates.stage2;
+  return rates.stage4;
+}
+
+// 计算仓租死线：从第1天起，累计仓租达到 targetAmount 的那一天
+// 返回 {day, total}，如果超过365天还没到就返回365
+function calcDeadline(targetAmount, rates) {
+  let total = 0;
+  for (let d = 1; d <= 365; d++) {
+    total += getDailyRate(d, rates);
+    if (total >= targetAmount) {
+      return { day: d, total: total };
+    }
+  }
+  return { day: 365, total: total };
+}
+
+// 计算当前库龄
+function getDaysHeld() {
+  const inDateStr = document.getElementById('inDate').value;
+  if (!inDateStr) return 0;
+  const inDate = new Date(inDateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  inDate.setHours(0, 0, 0, 0);
+  const diff = Math.floor((today - inDate) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff; // 入库日期在未来的话按0算
+}
+
+function calculate() {
+  const X = parseFloat(document.getElementById('costPrice').value);       // 进货价
+  const ship = parseFloat(document.getElementById('shippingCost').value) || 0; // 入库运费
+  const totalCost = X + ship;                                             // 总成本（含运费）
+  const P0 = parseFloat(document.getElementById('currentPrice').value);   // 当前价
+  const Pt = parseFloat(document.getElementById('expectedPrice').value);  // 预期价
+  const t = parseFloat(document.getElementById('expectedDays').value);    // 预期天数
+  const p = parseInt(document.getElementById('probability').value) / 100; // 概率
+  const maxLossRatio = parseInt(document.getElementById('maxLossRatio').value) / 100; // 最大亏损比例
+
+  const rates = STORAGE_RATES[currentSize];
+  const held = getDaysHeld();
+
+  const resultArea = document.getElementById('resultArea');
+  const scenarioArea = document.getElementById('scenarioArea');
+
+  // 基础数据有没有
+  if (isNaN(X) || isNaN(P0)) {
+    resultArea.innerHTML = '<div class="empty-state">请填写进货成本、当前可售价</div>';
+    scenarioArea.innerHTML = '<div class="empty-state">请填写进货成本、当前售价和预期涨价后价格</div>';
+    return;
+  }
+
+  const currentLoss = totalCost - P0;    // 现在卖的亏损（含运费成本）
+  const storageSoFar = held > 0 ? calcStorage(1, held, rates) : 0; // 至今仓租
+  const currentDailyRate = held > 0 ? getDailyRate(held, rates) : getDailyRate(1, rates); // 当前日仓租
+
+  // 仓租死线
+  const maxLossAmount = totalCost * maxLossRatio;
+  const deadlineResult = calcDeadline(maxLossAmount, rates);
+  const deadline = deadlineResult.day;
+
+  // === 结果区 ===
+  let verdictHTML = '';
+
+  // 有预期价+天数 才给出完整建议
+  if (!isNaN(Pt) && !isNaN(t) && t > 0) {
+    const priceGain = Pt - P0;          // 涨价幅度
+
+    // 等待期间仓租（从今天 held 天后，到 held + t 天后）
+    const futureStorage = calcStorage(held + 1, held + t, rates);
+
+    // 涨到目标的实际盈亏（涨了之后就卖掉，所以总仓租 = 已付 + 等待期）
+    const totalStorageIfRise = storageSoFar + futureStorage;
+    const profitIfRise = Pt - totalCost - totalStorageIfRise;
+    const lossIfNot = P0 - totalCost - totalStorageIfRise;
+    const expectedValue = p * profitIfRise + (1 - p) * lossIfNot;
+
+    const currentProfit = P0 - totalCost - storageSoFar; // 现在卖的实际盈亏
+
+    const shouldHold = expectedValue > currentProfit;
+
+    // 临界点：最多还能等多少天（从今天算起，再等多少天内期望还是正的）
+    // 这个在阶梯费率下不适合用简单公式，近似用平均日租
+    const avgDailyRate = t > 0 ? futureStorage / t : currentDailyRate;
+    let maxDays = (p * priceGain) / avgDailyRate;
+    if (maxDays < 0) maxDays = 0;
+
+    // 临界点：价格至少涨到多少
+    let minPrice = P0 + futureStorage / p;
+    if (minPrice < P0) minPrice = P0;
+
+    let reason = '';
+    if (shouldHold) {
+      const diff = expectedValue - currentProfit;
+      reason = `持有期望收益（${fmt(expectedValue)}元）比现在卖（${fmt(currentProfit)}元）多赚 ${fmt(diff)} 元`;
+    } else {
+      const diff = currentProfit - expectedValue;
+      reason = `持有期望亏损（${fmt(Math.abs(expectedValue))}元）比现在卖（${fmt(currentProfit)}元）多亏 ${fmt(diff)} 元`;
+    }
+
+    // 当前所处计费阶段
+    const stage = held <= 0 ? '未入库' :
+                  held <= 35 ? '免费期' :
+                  held <= 90 ? '标准费率' : '高费率';
+
+    verdictHTML = `
+      <div class="verdict ${shouldHold ? 'hold' : 'sell'}">
+        <div class="verdict-icon">${shouldHold ? '🟢' : '🔴'}</div>
+        <div class="verdict-text">${shouldHold ? '建议持有 · 等涨价' : '建议现在就卖 · 止损'}</div>
+        <div class="verdict-reason">${reason}</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">当前库龄</div>
+          <div class="stat-value">${held} 天</div>
+          <div class="stat-sub"><span class="stage-badge">${stage}</span></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">已付仓租</div>
+          <div class="stat-value loss">${fmt(storageSoFar)} 元</div>
+          <div class="stat-sub">当前费率 ${fmt(currentDailyRate)} 元/天</div>
+        </div>
+        <div class="stat-item" style="background:${currentProfit >= 0 ? '#e8f5e9' : '#ffebee'};">
+          <div class="stat-label">到今天总盈亏</div>
+          <div class="stat-value ${currentProfit >= 0 ? 'profit' : 'loss'}">${currentProfit >= 0 ? '+' : ''}${fmt(currentProfit)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">现在卖（不算仓租）</div>
+          <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${currentLoss > 0 ? '-'+fmt(currentLoss) : '+'+fmt(Math.abs(currentLoss))} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">持有期望盈亏</div>
+          <div class="stat-value ${expectedValue < 0 ? 'loss' : 'profit'}">${expectedValue < 0 ? '-'+fmt(Math.abs(expectedValue)) : '+'+fmt(expectedValue)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">等待期仓租（${t}天）</div>
+          <div class="stat-value loss">${fmt(futureStorage)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">按概率推算最多能等</div>
+          <div class="stat-value ${maxDays < t ? 'loss' : 'warning'}">约 ${fmtInt(maxDays)} 天</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">仓租死线</div>
+          <div class="stat-value loss">第 ${deadline} 天</div>
+          <div class="stat-sub">累计仓租达 ${fmt(deadlineResult.total)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">至少要涨到</div>
+          <div class="stat-value warning">${fmt(minPrice)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">总成本（含运费）</div>
+          <div class="stat-value">${fmt(totalCost)} 元</div>
+        </div>
+      </div>
+    `;
+  } else {
+    // 只有基础数据，只显示当前状态
+    const currentProfit = P0 - totalCost - storageSoFar;
+
+    const stage = held <= 0 ? '未入库' :
+                  held <= 35 ? '免费期' :
+                  held <= 90 ? '标准费率' : '高费率';
+
+    verdictHTML = `
+      <div class="verdict ${currentLoss > 0 ? 'sell' : 'hold'}">
+        <div class="verdict-icon">${currentLoss > 0 ? '📉' : '📈'}</div>
+        <div class="verdict-text">${currentLoss > 0 ? '当前亏损中' : '当前盈利中'}</div>
+        <div class="verdict-reason">${currentLoss > 0 ? '现在卖亏 ' + fmt(currentLoss) + ' 元/件（不含仓租）' : '现在卖赚 ' + fmt(Math.abs(currentLoss)) + ' 元/件（不含仓租）'}</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">当前库龄</div>
+          <div class="stat-value">${held} 天</div>
+          <div class="stat-sub"><span class="stage-badge">${stage}</span></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">已付仓租</div>
+          <div class="stat-value loss">${fmt(storageSoFar)} 元</div>
+          <div class="stat-sub">当前费率 ${fmt(currentDailyRate)} 元/天</div>
+        </div>
+        <div class="stat-item" style="background:${currentProfit >= 0 ? '#e8f5e9' : '#ffebee'};">
+          <div class="stat-label">到今天总盈亏</div>
+          <div class="stat-value ${currentProfit >= 0 ? 'profit' : 'loss'}">${currentProfit >= 0 ? '+' : ''}${fmt(currentProfit)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">单件利润/亏损</div>
+          <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${currentLoss > 0 ? '-'+fmt(currentLoss) : '+'+fmt(Math.abs(currentLoss))} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">利润率</div>
+          <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${fmt((P0 - totalCost) / totalCost * 100)}%</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">仓租死线</div>
+          <div class="stat-value loss">第 ${deadline} 天</div>
+          <div class="stat-sub">累计仓租达 ${fmt(deadlineResult.total)} 元</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">总成本（含运费）</div>
+          <div class="stat-value">${fmt(totalCost)} 元</div>
+        </div>
+      </div>
+      <div style="margin-top:12px; padding:10px; background:#f8f9fb; border-radius:8px; font-size:12px; color:#7f8c8d;">
+        💡 填写"涨价预期"可以得到更具体的持有/抛售建议
+      </div>
+    `;
+  }
+
+  // 死线提醒
+  if (held > 0) {
+    const daysLeft = deadline - held;
+    if (daysLeft <= 0) {
+      verdictHTML += `<div class="deadline-banner danger">⚠️ 仓租死线已超 ${held - deadline} 天（按 ${Math.round(maxLossRatio*100)}% 亏损算，第 ${deadline} 天到死线），注意止损！</div>`;
+    } else if (daysLeft <= 7) {
+      verdictHTML += `<div class="deadline-banner">⏰ 仓租死线还剩 ${daysLeft} 天（累计仓租将达 ${fmt(maxLossAmount)} 元），注意时间</div>`;
+    } else {
+      verdictHTML += `<div class="deadline-banner" style="background:#e8f5e9; border-left-color:#66bb6a; color:#2e7d32;">✅ 仓租死线还剩 ${daysLeft} 天</div>`;
+    }
+  }
+
+  resultArea.innerHTML = verdictHTML;
+
+  // === 情景对比表 ===
+  if (isNaN(Pt)) {
+    scenarioArea.innerHTML = '<div class="empty-state">请填写"预期涨价后价格"以生成情景对比</div>';
+    return;
+  }
+
+  const scenarios = [7, 15, 30, 45, 60, 90];
+  let tableHTML = `
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th>再持有</th>
+          <th>总库龄</th>
+          <th>等待期仓租</th>
+          <th>累计总仓租</th>
+          <th>涨到目标的盈亏</th>
+          <th>没涨到的亏损</th>
+          <th>期望盈亏</th>
+          <th>决策</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const days of scenarios) {
+    const totalDay = held + days;
+    const futureStorage = calcStorage(held + 1, totalDay, rates);
+    const totalStorage = storageSoFar + futureStorage;
+    const profitRise = Pt - totalCost - totalStorage;
+    const lossNot = P0 - totalCost - totalStorage;
+    const expVal = p * profitRise + (1 - p) * lossNot;
+    const currentProf = P0 - totalCost - storageSoFar;
+    const isHold = expVal > currentProf;
+
+    let tagClass, tagText;
+    if (isHold) {
+      tagClass = 'hold';
+      tagText = '值得等';
+    } else if (Math.abs(expVal - currentProf) < 0.5) {
+      tagClass = 'warn';
+      tagText = '差不多';
+    } else {
+      tagClass = 'sell';
+      tagText = '不值得等';
+    }
+
+    tableHTML += `
+      <tr>
+        <td><strong>${days} 天</strong></td>
+        <td>${totalDay} 天</td>
+        <td>${fmt(futureStorage)} 元</td>
+        <td>${fmt(totalStorage)} 元</td>
+        <td style="color:${profitRise >= 0 ? '#27ae60' : '#e74c3c'}; font-weight:500;">
+          ${profitRise >= 0 ? '+' : ''}${fmt(profitRise)} 元
+        </td>
+        <td style="color:#e74c3c;">${fmt(lossNot)} 元</td>
+        <td style="font-weight:600; color:${expVal >= 0 ? '#27ae60' : '#e74c3c'};">
+          ${expVal >= 0 ? '+' : ''}${fmt(expVal)} 元
+        </td>
+        <td><span class="tag ${tagClass}">${tagText}</span></td>
+      </tr>
+    `;
+  }
+
+  tableHTML += '</tbody></table>';
+  tableHTML += `
+    <div style="margin-top:12px; font-size:12px; color:#95a5a6; text-align:center;">
+      涨价把握 ${Math.round(p*100)}% · 目标价 ${fmt(Pt)} 元 · 体积档位：${currentSize === 'small' ? '小件' : currentSize === 'medium' ? '中件' : '大件'}
+    </div>
+  `;
+
+  scenarioArea.innerHTML = tableHTML;
+}
+
+// =========================================
+//  授权系统
+// =========================================
+const _AUTH_SECRET = 'AdonisInventory2026';
+const _AUTH_STORAGE = 'ipc_auth_info';
+const _AUTH_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const _AUTH_CHARMAP = {};
+for (let _i = 0; _i < _AUTH_CHARSET.length; _i++) {
+  _AUTH_CHARMAP[_AUTH_CHARSET[_i]] = _i;
+}
+const _AUTH_TYPE = { '7': 7, 'M': 30 };
+const _AUTH_BLACKLIST = []; // 黑名单授权码，可随时添加
+
+function _authHash(str, secret) {
+  let h = 0;
+  const s = secret + str + secret.split('').reverse().join('');
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h = h & 0x7fffffff;
+  }
+  return h;
+}
+
+function _authGenChecksum(type, numStr, secret) {
+  const h = _authHash(type + numStr, secret);
+  let result = '';
+  let n = h;
+  for (let i = 0; i < 3; i++) {
+    result += _AUTH_CHARSET[n % _AUTH_CHARSET.length];
+    n = Math.floor(n / _AUTH_CHARSET.length);
+  }
+  return result;
+}
+
+function _authVerify(code) {
+  code = (code || '').toUpperCase().trim();
+  if (code.length !== 8) return { valid: false, msg: '授权码长度不正确' };
+  const type = code[0];
+  if (!(type in _AUTH_TYPE)) return { valid: false, msg: '无效的授权码类型' };
+  for (let i = 1; i < 8; i++) {
+    if (!(code[i] in _AUTH_CHARMAP)) return { valid: false, msg: '授权码包含无效字符' };
+  }
+  const numStr = code.substring(1, 5);
+  const checksum = code.substring(5, 8);
+  const expected = _authGenChecksum(type, numStr, _AUTH_SECRET);
+  if (checksum !== expected) return { valid: false, msg: '授权码无效' };
+  if (_AUTH_BLACKLIST.indexOf(code) !== -1) return { valid: false, msg: '授权码已被冻结' };
+  return { valid: true, type: type, days: _AUTH_TYPE[type] };
+}
+
+function _authGetInfo() {
+  try {
+    const saved = localStorage.getItem(_AUTH_STORAGE);
+    if (!saved) return null;
+    return JSON.parse(saved);
+  } catch(e) { return null; }
+}
+
+function _authSaveInfo(info) {
+  try { localStorage.setItem(_AUTH_STORAGE, JSON.stringify(info)); } catch(e) {}
+}
+
+function _authCheck() {
+  const info = _authGetInfo();
+  if (!info) return false;
+  const now = Date.now();
+  if (now >= info.expiresAt) return false;
+  return info;
+}
+
+function activateAuth() {
+  const code = document.getElementById('authCode').value;
+  const errorEl = document.getElementById('authError');
+  const result = _authVerify(code);
+
+  if (!result.valid) {
+    errorEl.textContent = '❌ ' + result.msg;
+    return;
+  }
+
+  const now = Date.now();
+  const expiresAt = now + result.days * 24 * 60 * 60 * 1000;
+  const info = {
+    code: code,
+    type: result.type,
+    days: result.days,
+    activatedAt: now,
+    expiresAt: expiresAt
+  };
+  _authSaveInfo(info);
+
+  errorEl.style.color = '#27ae60';
+  errorEl.textContent = '✅ 激活成功！正在进入...';
+
+  setTimeout(() => {
+    enterApp();
+  }, 800);
+}
+
+function enterApp() {
+  document.getElementById('authOverlay').classList.add('hidden');
+  updateAuthBadge();
+  // 初始化工具
+  loadData();
+  calculate();
+}
+
+function updateAuthBadge() {
+  const info = _authCheck();
+  const badge = document.getElementById('authBadge');
+  if (!info) {
+    badge.style.display = 'none';
+    return;
+  }
+  const daysLeft = Math.ceil((info.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+  const typeName = info.type === '7' ? '7天卡' : '月卡';
+  document.getElementById('authBadgeText').textContent = typeName + ' · 剩' + daysLeft + '天';
+  badge.style.display = 'block';
+}
+
+function showAuthInfo() {
+  const info = _authGetInfo();
+  if (!info) return;
+  const daysLeft = Math.ceil((info.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+  const typeName = info.type === '7' ? '7天体验卡' : '月卡';
+  const activateDate = new Date(info.activatedAt).toLocaleDateString();
+  const expireDate = new Date(info.expiresAt).toLocaleDateString();
+
+  alert(
+    '📋 授权信息\n' +
+    '——————————\n' +
+    '卡类型：' + typeName + '\n' +
+    '授权码：' + info.code + '\n' +
+    '激活时间：' + activateDate + '\n' +
+    '到期时间：' + expireDate + '\n' +
+    '剩余天数：' + daysLeft + ' 天'
+  );
+}
+
+// 回车激活
+document.addEventListener('DOMContentLoaded', function() {
+  const input = document.getElementById('authCode');
+  if (input) {
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') activateAuth();
+    });
+  }
+});
+
+// 启动检查
+(function() {
+  const auth = _authCheck();
+  if (auth) {
+    enterApp();
+  } else {
+    document.getElementById('authOverlay').classList.remove('hidden');
+  }
+})();
+</script>
+
+</body>
+</html>

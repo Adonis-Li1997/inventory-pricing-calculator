@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>授权码生成器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f6fa;
+    color: #2c3e50;
+    padding: 30px 20px;
+    line-height: 1.6;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 24px;
+    color: #1a1a2e;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .card h2 {
+    font-size: 16px;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f2f5;
+    color: #34495e;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    color: #5a6c7d;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .form-group input, .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #dce3eb;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #4a90d9;
+  }
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: #4a90d9; color: #fff; }
+  .btn-primary:hover { background: #3a7bc8; }
+  .btn-secondary { background: #f0f2f5; color: #5a6c7d; }
+  .btn-secondary:hover { background: #e4e7eb; }
+  .btn-success { background: #27ae60; color: #fff; }
+  .btn-success:hover { background: #219a52; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .code-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 16px;
+    border: 1px solid #eef0f3;
+    border-radius: 8px;
+  }
+  .code-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 100px;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f0f2f5;
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+    font-size: 14px;
+    align-items: center;
+  }
+  .code-item:last-child { border-bottom: none; }
+  .code-item:hover { background: #f8f9fb; }
+  .code-index { color: #95a5a6; font-size: 12px; }
+  .code-value { font-weight: 600; letter-spacing: 1px; color: #2c3e50; }
+  .code-type {
+    text-align: center;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  .code-type.week { background: #e3f2fd; color: #1565c0; }
+  .code-type.month { background: #fce4ec; color: #c2185b; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-box {
+    background: #f8f9fb;
+    padding: 14px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .stat-label { font-size: 12px; color: #7f8c8d; margin-bottom: 4px; }
+  .stat-value { font-size: 20px; font-weight: 700; color: #2c3e50; }
+
+  .verify-box {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .verify-box .form-group { flex: 1; margin-bottom: 0; }
+  .verify-result {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    display: none;
+  }
+  .verify-result.valid { background: #e8f5e9; color: #2e7d32; display: block; }
+  .verify-result.invalid { background: #ffebee; color: #c62828; display: block; }
+
+  .warning {
+    background: #fff8e1;
+    border-left: 4px solid #fbc02d;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #795548;
+    margin-bottom: 20px;
+    line-height: 1.7;
+  }
+  .warning strong { color: #e65100; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🔐 授权码生成器</h1>
+
+  <div class="warning">
+    ⚠️ <strong>重要提示：</strong>此工具仅供你本地使用，<strong>不要上传到 GitHub Pages 或任何公开网站</strong>！<br>
+    密钥是生成授权码的核心，一旦泄露别人就能伪造授权码。请妥善保管。
+  </div>
+
+  <!-- 生成区 -->
+  <div class="card">
+    <h2>🎫 批量生成授权码</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>密钥</label>
+        <input type="text" id="secretKey" value="AdonisInventory2026" placeholder="自定义密钥">
+      </div>
+      <div class="form-group">
+        <label>卡类型</label>
+        <select id="cardType">
+          <option value="7">7天体验卡</option>
+          <option value="M">月卡（30天）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>生成数量</label>
+        <input type="number" id="count" value="10" min="1" max="500">
+      </div>
+      <div class="form-group">
+        <label>起始序号</label>
+        <input type="number" id="startNum" value="1" min="1">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="generateCodes()">生成授权码</button>
+      <button class="btn btn-secondary" onclick="copyAll()">复制全部</button>
+      <button class="btn btn-success" onclick="exportTxt()">导出 TXT</button>
+    </div>
+
+    <div class="stats" id="statsBox" style="display:none; margin-top:18px;">
+      <div class="stat-box">
+        <div class="stat-label">生成数量</div>
+        <div class="stat-value" id="statCount">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">卡类型</div>
+        <div class="stat-value" id="statType">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">序号范围</div>
+        <div class="stat-value" id="statRange" style="font-size:15px;">—</div>
+      </div>
+    </div>
+
+    <div class="code-list" id="codeList" style="display:none;"></div>
+  </div>
+
+  <!-- 验证区 -->
+  <div class="card">
+    <h2>✅ 单个验证</h2>
+    <div class="verify-box">
+      <div class="form-group">
+        <label>输入授权码</label>
+        <input type="text" id="verifyCode" placeholder="例如：7A001X9K" style="text-transform:uppercase; letter-spacing:2px;">
+      </div>
+      <button class="btn btn-primary" onclick="verifyCode()">验证</button>
+    </div>
+    <div class="verify-result" id="verifyResult"></div>
+  </div>
+
+  <div class="warning" style="background:#e8f5e9; border-left-color:#66bb6a; color:#2e7d32;">
+    💡 <strong>使用说明：</strong><br>
+    1. 设置好密钥（建议修改为你自己的密钥，记住它！以后生成都用同一个）<br>
+    2. 选择卡类型、数量、起始序号，点生成<br>
+    3. 复制授权码发给买家，买家在工具里输入即可激活<br>
+    4. 同一个密钥生成的码才能被工具验证通过<br>
+    5. 7天卡从激活日开始算，7天后过期；月卡同理
+  </div>
+</div>
+
+<script>
+// ========== 核心算法（和工具端保持一致） ==========
+
+// 字符集：31个，排除 0/O/1/I/L 易混字符
+const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CHAR_MAP = {};
+for (let i = 0; i < CHARSET.length; i++) {
+  CHAR_MAP[CHARSET[i]] = i;
+}
+const BASE = CHARSET.length; // 31
+
+// 类型映射
+const TYPE_MAP = {
+  '7': { name: '7天体验卡', days: 7 },
+  'M': { name: '月卡', days: 30 }
+};
+
+// 简单哈希（基于字符串和密钥生成数字指纹）
+function hash(str, secret) {
+  let h = 0;
+  const s = secret + str + secret.split('').reverse().join('');
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h = h & 0x7fffffff; // 保持正数
+  }
+  return h;
+}
+
+// 序号 → 4位 31进制编码
+function encodeNum(num) {
+  if (num < 1 || num >= Math.pow(BASE, 4)) {
+    throw new Error('序号超出范围 (1~' + (Math.pow(BASE, 4) - 1) + ')');
+  }
+  let n = num - 1; // 从0开始算
+  let result = '';
+  for (let i = 0; i < 4; i++) {
+    result = CHARSET[n % BASE] + result;
+    n = Math.floor(n / BASE);
+  }
+  return result;
+}
+
+// 4位编码 → 序号
+function decodeNum(code4) {
+  let num = 0;
+  for (let i = 0; i < 4; i++) {
+    const c = code4[i];
+    if (!(c in CHAR_MAP)) return -1;
+    num = num * BASE + CHAR_MAP[c];
+  }
+  return num + 1;
+}
+
+// 生成3位校验码
+function genChecksum(type, numStr, secret) {
+  const h = hash(type + numStr, secret);
+  let result = '';
+  let n = h;
+  for (let i = 0; i < 3; i++) {
+    result += CHARSET[n % BASE];
+    n = Math.floor(n / BASE);
+  }
+  return result;
+}
+
+// 生成单个授权码
+function generateCode(type, num, secret) {
+  if (!(type in TYPE_MAP)) {
+    throw new Error('无效的卡类型');
+  }
+  const numStr = encodeNum(num);
+  const checksum = genChecksum(type, numStr, secret);
+  return type + numStr + checksum;
+}
+
+// 验证授权码
+function verifyCodeStr(code, secret) {
+  code = code.toUpperCase().trim();
+  if (code.length !== 8) {
+    return { valid: false, reason: '长度不正确（应为8位）' };
+  }
+  const type = code[0];
+  if (!(type in TYPE_MAP)) {
+    return { valid: false, reason: '无效的卡类型' };
+  }
+  const numStr = code.substring(1, 5);
+  const checksum = code.substring(5, 8);
+
+  // 验证每个字符都在字符集中
+  for (let i = 0; i < 7; i++) {
+    if (!(code[i] in CHAR_MAP) && i !== 0) {
+      return { valid: false, reason: '包含无效字符' };
+    }
+  }
+  for (let i = 1; i < 8; i++) {
+    if (!(code[i] in CHAR_MAP)) {
+      return { valid: false, reason: '包含无效字符' };
+    }
+  }
+
+  const expectedChecksum = genChecksum(type, numStr, secret);
+  if (checksum !== expectedChecksum) {
+    return { valid: false, reason: '校验失败（授权码无效）' };
+  }
+
+  const num = decodeNum(numStr);
+  return {
+    valid: true,
+    type: type,
+    typeName: TYPE_MAP[type].name,
+    days: TYPE_MAP[type].days,
+    serial: num
+  };
+}
+
+// ========== UI 逻辑 ==========
+
+let generatedCodes = [];
+
+function generateCodes() {
+  const secret = document.getElementById('secretKey').value.trim();
+  const type = document.getElementById('cardType').value;
+  const count = parseInt(document.getElementById('count').value) || 0;
+  const startNum = parseInt(document.getElementById('startNum').value) || 1;
+
+  if (!secret) {
+    alert('请输入密钥');
+    return;
+  }
+  if (count < 1 || count > 500) {
+    alert('生成数量范围 1-500');
+    return;
+  }
+
+  generatedCodes = [];
+  for (let i = 0; i < count; i++) {
+    const num = startNum + i;
+    try {
+      const code = generateCode(type, num, secret);
+      generatedCodes.push({ code: code, type: type, serial: num });
+    } catch(e) {
+      alert('生成失败：' + e.message);
+      return;
+    }
+  }
+
+  renderCodeList();
+}
+
+function renderCodeList() {
+  const listEl = document.getElementById('codeList');
+  const statsBox = document.getElementById('statsBox');
+
+  if (generatedCodes.length === 0) {
+    listEl.style.display = 'none';
+    statsBox.style.display = 'none';
+    return;
+  }
+
+  const typeInfo = TYPE_MAP[generatedCodes[0].type];
+  const typeClass = generatedCodes[0].type === '7' ? 'week' : 'month';
+  const first = generatedCodes[0].serial;
+  const last = generatedCodes[generatedCodes.length - 1].serial;
+
+  document.getElementById('statCount').textContent = generatedCodes.length;
+  document.getElementById('statType').textContent = typeInfo.name;
+  document.getElementById('statRange').textContent = '#' + first + ' ~ #' + last;
+  statsBox.style.display = 'grid';
+
+  let html = '';
+  for (const item of generatedCodes) {
+    const tc = item.type === '7' ? 'week' : 'month';
+    const tn = TYPE_MAP[item.type].name;
+    html += `
+      <div class="code-item">
+        <span class="code-index">#${item.serial}</span>
+        <span class="code-value">${item.code}</span>
+        <span class="code-type ${tc}">${tn}</span>
+      </div>
+    `;
+  }
+  listEl.innerHTML = html;
+  listEl.style.display = 'block';
+}
+
+function copyAll() {
+  if (generatedCodes.length === 0) {
+    alert('请先生成授权码');
+    return;
+  }
+  const text = generatedCodes.map(c => c.code).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    alert('已复制 ' + generatedCodes.length + ' 个授权码到剪贴板');
+  }).catch(() => {
+    // 降级方案
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('已复制 ' + generatedCodes.length + ' 个授权码到剪贴板');
+  });
+}
+
+function exportTxt() {
+  if (generatedCodes.length === 0) {
+    alert('请先生成授权码');
+    return;
+  }
+  const typeInfo = TYPE_MAP[generatedCodes[0].type];
+  const text = generatedCodes.map(c => c.code + '  #' + c.serial).join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '授权码_' + typeInfo.name + '_' + generatedCodes.length + '个.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function verifyCode() {
+  const code = document.getElementById('verifyCode').value.trim();
+  const secret = document.getElementById('secretKey').value.trim();
+  const resultEl = document.getElementById('verifyResult');
+
+  if (!code) {
+    resultEl.className = 'verify-result invalid';
+    resultEl.textContent = '请输入授权码';
+    return;
+  }
+  if (!secret) {
+    resultEl.className = 'verify-result invalid';
+    resultEl.textContent = '请先输入密钥';
+    return;
+  }
+
+  const result = verifyCodeStr(code, secret);
+  if (result.valid) {
+    resultEl.className = 'verify-result valid';
+    resultEl.innerHTML = '✅ 有效授权码<br>' +
+      '类型：' + result.typeName + '<br>' +
+      '有效期：' + result.days + ' 天<br>' +
+      '序号：#' + result.serial;
+  } else {
+    resultEl.className = 'verify-result invalid';
+    resultEl.textContent = '❌ 无效：' + result.reason;
+  }
+}
+</script>
+
+</body>
+</html>

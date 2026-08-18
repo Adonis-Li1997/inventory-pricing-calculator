@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>库存决策计算器</title>
+<script>
+  // 桌面端访问 mobile.html 自动跳回 PC 版
+  (function() {
+    var isDesktop = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                 && window.innerWidth > 768;
+    if (isDesktop) {
+      var path = window.location.pathname;
+      if (path.endsWith('/mobile.html')) {
+        window.location.replace(path.replace('mobile.html', 'index.html'));
+      }
+    }
+  })();
+</script>
+<style>
+  /* ===== 基础重置 ===== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f6fa;
+    color: #2c3e50;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  input, select, button { font-family: inherit; font-size: 16px; }
+  input:focus, select:focus, button:focus { outline: none; }
+
+  /* ===== 顶部栏 ===== */
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 48px;
+    background: #fff;
+    border-bottom: 1px solid #eef0f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding-top: env(safe-area-inset-top);
+  }
+  .topbar-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a1a2e;
+  }
+  .topbar-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #5a6c7d;
+    background: none;
+    border: none;
+    cursor: pointer;
+    margin-top: env(safe-area-inset-top);
+  }
+  .topbar-btn.left { left: 4px; }
+  .topbar-btn.right { right: 4px; }
+
+  /* ===== 底部 Tab ===== */
+  .tabbar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    background: #fff;
+    border-top: 1px solid #eef0f3;
+    display: flex;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #95a5a6;
+    font-size: 11px;
+    cursor: pointer;
+    transition: color 0.2s;
+    min-height: 44px;
+  }
+  .tab-item.active { color: #4a90d9; }
+  .tab-icon { font-size: 22px; line-height: 1; }
+
+  /* ===== 滑动容器 ===== */
+  .swiper-container {
+    position: fixed;
+    top: 48px;
+    bottom: 56px;
+    left: 0;
+    right: 0;
+    overflow: hidden;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .swiper-wrapper {
+    display: flex;
+    width: 300%;
+    height: 100%;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    touch-action: pan-y;
+  }
+  .swiper-wrapper.dragging { transition: none; }
+  .swiper-slide {
+    width: 33.333%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+  }
+
+  /* ===== 通用卡片 ===== */
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #34495e;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ===== 表单组 ===== */
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label {
+    display: block;
+    font-size: 13px;
+    color: #5a6c7d;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .form-hint {
+    font-size: 11px;
+    color: #95a5a6;
+    font-weight: normal;
+    margin-left: 4px;
+  }
+  .form-input {
+    width: 100%;
+    height: 48px;
+    padding: 0 14px;
+    border: 1px solid #dce3eb;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #fafbfc;
+    transition: border-color 0.2s, background 0.2s;
+    color: #2c3e50;
+  }
+  .form-input:focus {
+    border-color: #4a90d9;
+    background: #fff;
+  }
+
+  /* ===== 体积档位 ===== */
+  .size-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .size-option {
+    padding: 12px 6px;
+    border: 1.5px solid #dce3eb;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    background: #fff;
+    transition: all 0.2s;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+  .size-option:active { transform: scale(0.97); }
+  .size-option.active {
+    background: #e8f0fe;
+    border-color: #4a90d9;
+  }
+  .size-option.active .size-name { color: #1a73e8; font-weight: 600; }
+  .size-name { font-size: 14px; color: #2c3e50; }
+  .size-range { font-size: 11px; color: #95a5a6; }
+  .size-option.active .size-range { color: #6a9ad9; }
+
+  /* ===== 滑块 ===== */
+  .slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .slider-wrap input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 10px;
+    border-radius: 5px;
+    background: #e8ecf0;
+    cursor: pointer;
+  }
+  .slider-wrap input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #4a90d9;
+    cursor: pointer;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(74, 144, 217, 0.4);
+  }
+  .slider-wrap input[type="range"]::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #4a90d9;
+    cursor: pointer;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(74, 144, 217, 0.4);
+  }
+  .slider-value {
+    min-width: 52px;
+    text-align: right;
+    font-weight: 700;
+    color: #4a90d9;
+    font-size: 17px;
+  }
+
+  /* ===== 分组折叠 ===== */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    cursor: pointer;
+    min-height: 40px;
+  }
+  .section-arrow {
+    font-size: 12px;
+    color: #95a5a6;
+    transition: transform 0.2s;
+  }
+  .section-arrow.open { transform: rotate(180deg); }
+  .section-content { overflow: hidden; }
+
+  /* ===== 决策结论卡 ===== */
+  .verdict {
+    padding: 22px 16px;
+    border-radius: 14px;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .verdict.hold { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); }
+  .verdict.sell { background: linear-gradient(135deg, #ffebee, #ffcdd2); }
+  .verdict-icon { font-size: 40px; margin-bottom: 8px; }
+  .verdict-text {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .verdict.hold .verdict-text { color: #2e7d32; }
+  .verdict.sell .verdict-text { color: #c62828; }
+  .verdict-reason {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  /* ===== 数据网格 ===== */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-item {
+    background: #f8f9fb;
+    padding: 12px;
+    border-radius: 10px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 17px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+  .stat-value.loss { color: #e74c3c; }
+  .stat-value.profit { color: #27ae60; }
+  .stat-value.warning { color: #f39c12; }
+  .stat-sub {
+    font-size: 10px;
+    color: #95a5a6;
+    margin-top: 3px;
+  }
+  .stage-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: #e8f0fe;
+    color: #1a73e8;
+  }
+
+  /* ===== 死线提醒 ===== */
+  .deadline-banner {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: #fff8e1;
+    border-left: 4px solid #fbc02d;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #795548;
+    line-height: 1.5;
+  }
+  .deadline-banner.danger {
+    background: #ffebee;
+    border-left-color: #e53935;
+    color: #b71c1c;
+  }
+  .deadline-banner.safe {
+    background: #e8f5e9;
+    border-left-color: #66bb6a;
+    color: #2e7d32;
+  }
+
+  /* ===== 情景对比表 ===== */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .scenario-table {
+    width: 100%;
+    min-width: 560px;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .scenario-table th,
+  .scenario-table td {
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid #f0f2f5;
+    white-space: nowrap;
+  }
+  .scenario-table th {
+    background: #f8f9fb;
+    font-weight: 600;
+    color: #5a6c7d;
+    font-size: 12px;
+    position: sticky;
+    top: 0;
+  }
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 60px;
+  }
+  .tag.hold { background: #e8f5e9; color: #2e7d32; }
+  .tag.sell { background: #ffebee; color: #c62828; }
+  .tag.warn { background: #fff8e1; color: #f57f17; }
+
+  /* ===== 空状态 ===== */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #bdc3c7;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ===== 仓租说明 ===== */
+  .storage-note {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #f8f9fb;
+    border-radius: 8px;
+    font-size: 11px;
+    color: #6b7c8d;
+    line-height: 1.7;
+  }
+  .storage-note table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+  }
+  .storage-note th,
+  .storage-note td {
+    border: 1px solid #dde4eb;
+    padding: 3px 4px;
+    text-align: center;
+    font-size: 10px;
+  }
+  .storage-note th { background: #e8f0fe; color: #4a6fa5; }
+
+  /* ===== 公式说明 ===== */
+  .formula-note {
+    margin-top: 14px;
+    padding: 12px;
+    background: #f0f7ff;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #4a6fa5;
+    line-height: 1.7;
+  }
+  .formula-note code {
+    background: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+  }
+
+  /* ===== 免责声明 ===== */
+  .disclaimer {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fff8e1;
+    border-radius: 8px;
+    font-size: 11px;
+    color: #795548;
+    line-height: 1.6;
+  }
+
+  /* ===== 授权层 ===== */
+  .auth-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-overlay.hidden { display: none; }
+  .auth-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+  .auth-icon { font-size: 48px; margin-bottom: 10px; }
+  .auth-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 6px;
+  }
+  .auth-subtitle {
+    font-size: 13px;
+    color: #7f8c8d;
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+  .auth-input {
+    width: 100%;
+    height: 52px;
+    padding: 0 14px;
+    border: 2px solid #dce3eb;
+    border-radius: 10px;
+    font-size: 20px;
+    letter-spacing: 4px;
+    text-align: center;
+    text-transform: uppercase;
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+    transition: border-color 0.2s;
+    margin-bottom: 14px;
+  }
+  .auth-input:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+  .auth-btn {
+    width: 100%;
+    height: 50px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .auth-btn:active { opacity: 0.9; }
+  .auth-error {
+    color: #e74c3c;
+    font-size: 13px;
+    margin-top: 14px;
+    min-height: 18px;
+  }
+  .auth-info {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f2f5;
+    font-size: 11px;
+    color: #95a5a6;
+    line-height: 1.8;
+    text-align: left;
+  }
+  .auth-info strong { color: #5a6c7d; }
+
+  .auth-badge {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 8px);
+    right: 48px;
+    font-size: 10px;
+    color: #7f8c8d;
+    z-index: 90;
+    padding: 3px 10px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    border: 1px solid #eef0f3;
+  }
+
+  /* ===== 自定义数字键盘 ===== */
+  .keyboard-mask {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s, visibility 0.25s;
+  }
+  .keyboard-mask.show { opacity: 1; visibility: visible; }
+
+  .custom-keyboard {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #e9ecf0;
+    z-index: 201;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    padding: 8px 6px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .custom-keyboard.show { transform: translateY(0); }
+
+  .keyboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px 8px;
+    font-size: 13px;
+    color: #7f8c8d;
+  }
+  .keyboard-done {
+    padding: 6px 16px;
+    background: #4a90d9;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    min-height: 32px;
+  }
+  .keyboard-done:active { opacity: 0.8; }
+
+  .keyboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .kb-key {
+    height: 46px;
+    background: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 20px;
+    font-weight: 500;
+    color: #2c3e50;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    transition: background 0.1s;
+  }
+  .kb-key:active { background: #dfe3e8; }
+  .kb-key.operator {
+    background: #fff;
+    font-size: 18px;
+  }
+  .kb-key.backspace {
+    font-size: 16px;
+    color: #e74c3c;
+  }
+  .kb-key.wide { grid-column: span 2; }
+  .kb-key.tall { height: auto; grid-row: span 2; }
+
+  /* 高亮当前输入框 */
+  .form-input.kb-active {
+    border-color: #4a90d9;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+  }
+
+  /* 小屏优化 */
+  @media (max-height: 600px) {
+    .kb-key { height: 40px; font-size: 18px; }
+    .verdict { padding: 16px; }
+    .verdict-icon { font-size: 32px; }
+    .verdict-text { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 授权层 -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-icon">🔐</div>
+    <div class="auth-title">库存决策计算器</div>
+    <div class="auth-subtitle">
+      请输入授权码激活使用<br>
+      激活后绑定此设备
+    </div>
+    <input type="text" class="auth-input" id="authCode" placeholder="请输入8位授权码" maxlength="8">
+    <button class="auth-btn" onclick="activateAuth()">立即激活</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-info">
+      <strong>💡 使用说明：</strong><br>
+      • 授权码需购买获取<br>
+      • 一个码激活一台设备<br>
+      • 激活当日起计算有效期<br>
+      • 请妥善保管授权码
+    </div>
+  </div>
+</div>
+
+<!-- 授权状态角标 -->
+<div class="auth-badge" id="authBadge" style="display:none;" onclick="showAuthInfo()">
+  <span id="authBadgeText">已激活</span>
+</div>
+
+<!-- 顶部栏 -->
+<div class="topbar">
+  <button class="topbar-btn left" onclick="goToTab(0)" id="topLeftBtn" style="visibility:hidden;">←</button>
+  <div class="topbar-title" id="topbarTitle">📦 库存决策计算器</div>
+  <button class="topbar-btn right" onclick="resetAll()">重置</button>
+</div>
+
+<!-- 滑动容器 -->
+<div class="swiper-container" id="swiper">
+  <div class="swiper-wrapper" id="swiperWrapper">
+
+    <!-- 屏 1：输入 -->
+    <div class="swiper-slide">
+
+      <!-- 基础参数 -->
+      <div class="card">
+        <div class="card-title">💰 基础参数</div>
+        <div class="form-group">
+          <label class="form-label">进货成本（元）<span class="form-hint">单件拿货价</span></label>
+          <input type="text" class="form-input kb-input" id="costPrice" data-type="number" data-step="0.01" placeholder="例如：25.00" readonly unselectable="on">
+        </div>
+        <div class="form-group">
+          <label class="form-label">入库运费（元）<span class="form-hint">摊到单件</span></label>
+          <input type="text" class="form-input kb-input" id="shippingCost" data-type="number" data-step="0.01" value="0" readonly unselectable="on">
+        </div>
+        <div class="form-group">
+          <label class="form-label">当前可售价（元）<span class="form-hint">现在马上能卖的价格</span></label>
+          <input type="text" class="form-input kb-input" id="currentPrice" data-type="number" data-step="0.01" placeholder="例如：22.00" readonly unselectable="on">
+        </div>
+      </div>
+
+      <!-- 仓储信息 -->
+      <div class="card">
+        <div class="card-title">🏭 仓储信息</div>
+
+        <div class="form-group">
+          <label class="form-label">入库日期<span class="form-hint">货到仓库的日期</span></label>
+          <input type="date" class="form-input" id="inDate" oninput="saveData(); calculate();">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">商品体积档位</label>
+          <div class="size-options">
+            <div class="size-option active" data-size="small" onclick="selectSize('small')">
+              <div class="size-name">小件</div>
+              <div class="size-range">≤0.005m³</div>
+            </div>
+            <div class="size-option" data-size="medium" onclick="selectSize('medium')">
+              <div class="size-name">中件</div>
+              <div class="size-range">0.005~0.02m³</div>
+            </div>
+            <div class="size-option" data-size="large" onclick="selectSize('large')">
+              <div class="size-name">大件</div>
+              <div class="size-range">>0.02m³</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">最大可接受亏损比例（%）<span class="form-hint">亏到总成本的比例就止损</span></label>
+          <input type="text" class="form-input kb-input" id="maxLossRatio" data-type="int" data-step="1" data-min="1" data-max="100" value="5" readonly unselectable="on">
+        </div>
+
+        <div class="storage-note">
+          <strong>📋 dewu仓储费率：</strong>
+          <table>
+            <tr>
+              <th>库龄</th>
+              <th>小件</th>
+              <th>中件</th>
+              <th>大件</th>
+            </tr>
+            <tr><td>≤35天</td><td colspan="3">免费</td></tr>
+            <tr><td>36~90天</td><td>0.15</td><td>0.20</td><td>0.30</td></tr>
+            <tr><td>>90天</td><td>0.45</td><td>0.50</td><td>0.75</td></tr>
+          </table>
+          单位：元/件/天
+        </div>
+      </div>
+
+      <!-- 涨价预期 -->
+      <div class="card">
+        <div class="card-title">📈 涨价预期</div>
+
+        <div class="form-group">
+          <label class="form-label">预期涨价后价格（元）<span class="form-hint">你觉得能涨到多少</span></label>
+          <input type="text" class="form-input kb-input" id="expectedPrice" data-type="number" data-step="0.01" placeholder="例如：30.00" readonly unselectable="on">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">预期等待天数（天）<span class="form-hint">估计还要等多久</span></label>
+          <input type="text" class="form-input kb-input" id="expectedDays" data-type="int" data-step="1" placeholder="例如：30" readonly unselectable="on">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">涨价把握<span class="form-hint">结合历史价格和节日判断</span></label>
+          <div class="slider-wrap">
+            <input type="range" id="probability" min="0" max="100" value="70" oninput="updateSlider(); saveData(); calculate();">
+            <span class="slider-value" id="probValue">70%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="formula-note">
+        💡 <strong>决策核心：</strong><br>
+        <code>涨价概率 × 涨价幅度 &gt; 等待期间仓租成本</code> → 持有<br>
+        否则 → 现在就卖
+      </div>
+
+      <div class="disclaimer">
+        ⚠️ <strong>免责声明：</strong>本工具仅提供数学计算，所有输入和判断均由用户自行决定。结果仅供参考，不构成投资或经营建议。
+      </div>
+
+    </div>
+
+    <!-- 屏 2：结果 -->
+    <div class="swiper-slide">
+      <div id="resultArea">
+        <div class="empty-state">请先在"输入"页填写参数<br>（进货成本 + 当前可售价是必填项）</div>
+      </div>
+    </div>
+
+    <!-- 屏 3：对比 -->
+    <div class="swiper-slide">
+      <div class="card">
+        <div class="card-title">📊 情景对比：持有不同天数</div>
+        <div id="scenarioArea">
+          <div class="empty-state">请先填写进货成本、当前售价和预期涨价后价格</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 底部 Tab -->
+<div class="tabbar">
+  <div class="tab-item active" onclick="goToTab(0)" data-tab="0">
+    <div class="tab-icon">📝</div>
+    <div>输入</div>
+  </div>
+  <div class="tab-item" onclick="goToTab(1)" data-tab="1">
+    <div class="tab-icon">🎯</div>
+    <div>结果</div>
+  </div>
+  <div class="tab-item" onclick="goToTab(2)" data-tab="2">
+    <div class="tab-icon">📊</div>
+    <div>对比</div>
+  </div>
+</div>
+
+<!-- 自定义数字键盘遮罩 -->
+<div class="keyboard-mask" id="kbMask" onclick="hideKeyboard()"></div>
+
+<!-- 自定义数字键盘 -->
+<div class="custom-keyboard" id="customKeyboard">
+  <div class="keyboard-header">
+    <span id="kbTitle">输入数值</span>
+    <button class="keyboard-done" onclick="hideKeyboard()">完成</button>
+  </div>
+  <div class="keyboard-grid">
+    <button class="kb-key" onclick="kbInput('7')">7</button>
+    <button class="kb-key" onclick="kbInput('8')">8</button>
+    <button class="kb-key" onclick="kbInput('9')">9</button>
+    <button class="kb-key backspace" onclick="kbBackspace()">⌫</button>
+
+    <button class="kb-key" onclick="kbInput('4')">4</button>
+    <button class="kb-key" onclick="kbInput('5')">5</button>
+    <button class="kb-key" onclick="kbInput('6')">6</button>
+    <button class="kb-key operator" onclick="kbClear()">清空</button>
+
+    <button class="kb-key" onclick="kbInput('1')">1</button>
+    <button class="kb-key" onclick="kbInput('2')">2</button>
+    <button class="kb-key" onclick="kbInput('3')">3</button>
+    <button class="kb-key operator" onclick="kbAddTen()">+10</button>
+
+    <button class="kb-key" onclick="kbInput('0')">0</button>
+    <button class="kb-key" onclick="kbInput('.')">.</button>
+    <button class="kb-key operator" onclick="kbAddOne()">+1</button>
+    <button class="kb-key" onclick="kbMinus()">−</button>
+  </div>
+</div>
+
+<script>
+// =========================================
+//  常量与状态
+// =========================================
+const STORAGE_RATES = {
+  small:  { stage1: 0,    stage2: 0.15, stage3: 0.15, stage4: 0.45 },
+  medium: { stage1: 0,    stage2: 0.20, stage3: 0.20, stage4: 0.50 },
+  large:  { stage1: 0,    stage2: 0.30, stage3: 0.30, stage4: 0.75 }
+};
+
+const STORAGE_KEY = 'inventory_calc_data';
+
+const DEFAULTS = {
+  costPrice: '',
+  shippingCost: '0',
+  currentPrice: '',
+  inDate: '',
+  size: 'small',
+  maxLossRatio: '5',
+  expectedPrice: '',
+  expectedDays: '',
+  probability: '70'
+};
+
+let currentSize = 'small';
+
+// =========================================
+//  滑动切换逻辑
+// =========================================
+let currentTab = 0;
+const TOTAL_TABS = 3;
+const TAB_TITLES = ['📝 输入参数', '🎯 决策结果', '📊 情景对比'];
+
+const swiperWrapper = document.getElementById('swiperWrapper');
+const swiperContainer = document.getElementById('swiper');
+
+let touchStartX = 0;
+let touchStartY = 0;
+let touchCurrentX = 0;
+let isDragging = false;
+let isHorizontalSwipe = null; // null=未确定, true=横向, false=纵向
+let dragStartTime = 0;
+
+function goToTab(index) {
+  if (index < 0) index = 0;
+  if (index >= TOTAL_TABS) index = TOTAL_TABS - 1;
+  currentTab = index;
+  swiperWrapper.classList.remove('dragging');
+  swiperWrapper.style.transform = `translateX(-${currentTab * (100 / 3)}%)`;
+  updateTabUI();
+  hideKeyboard();
+}
+
+function updateTabUI() {
+  document.querySelectorAll('.tab-item').forEach((el, i) => {
+    el.classList.toggle('active', i === currentTab);
+  });
+  document.getElementById('topbarTitle').textContent = TAB_TITLES[currentTab];
+  const leftBtn = document.getElementById('topLeftBtn');
+  leftBtn.style.visibility = currentTab > 0 ? 'visible' : 'hidden';
+}
+
+// 触摸事件
+swiperContainer.addEventListener('touchstart', (e) => {
+  if (swiperWrapper.scrollHeight > swiperContainer.clientHeight) {
+    // 允许内容滚动
+  }
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchCurrentX = touchStartX;
+  isHorizontalSwipe = null;
+  isDragging = true;
+  dragStartTime = Date.now();
+  swiperWrapper.classList.add('dragging');
+}, { passive: true });
+
+swiperContainer.addEventListener('touchmove', (e) => {
+  if (!isDragging) return;
+
+  const dx = e.touches[0].clientX - touchStartX;
+  const dy = e.touches[0].clientY - touchStartY;
+
+  // 判断方向（第一次移动时确定）
+  if (isHorizontalSwipe === null) {
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      isHorizontalSwipe = Math.abs(dx) > Math.abs(dy);
+    } else {
+      return;
+    }
+  }
+
+  if (!isHorizontalSwipe) return; // 纵向滚动，不拦截
+
+  touchCurrentX = e.touches[0].clientX;
+  e.preventDefault();
+
+  const slideWidth = swiperContainer.clientWidth;
+  const baseTranslate = -currentTab * slideWidth;
+  let offset = dx;
+
+  // 边界阻尼
+  if ((currentTab === 0 && dx > 0) || (currentTab === TOTAL_TABS - 1 && dx < 0)) {
+    offset = dx * 0.3;
+  }
+
+  swiperWrapper.style.transform = `translateX(${baseTranslate + offset}px)`;
+}, { passive: false });
+
+swiperContainer.addEventListener('touchend', (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  swiperWrapper.classList.remove('dragging');
+
+  if (!isHorizontalSwipe) return;
+
+  const dx = touchCurrentX - touchStartX;
+  const dt = Date.now() - dragStartTime;
+  const slideWidth = swiperContainer.clientWidth;
+  const velocity = dx / dt; // px/ms
+
+  let targetTab = currentTab;
+
+  if (Math.abs(velocity) > 0.3) {
+    // 快速滑动
+    targetTab = velocity > 0 ? currentTab - 1 : currentTab + 1;
+  } else if (Math.abs(dx) > slideWidth * 0.25) {
+    // 超过 1/4 宽度
+    targetTab = dx > 0 ? currentTab - 1 : currentTab + 1;
+  }
+
+  goToTab(targetTab);
+});
+
+// =========================================
+//  自定义数字键盘
+// =========================================
+let kbActiveInput = null; // 当前激活的输入框 DOM
+
+function initKeyboard() {
+  document.querySelectorAll('.kb-input').forEach(input => {
+    input.addEventListener('click', () => showKeyboard(input));
+    input.addEventListener('focus', (e) => { e.preventDefault(); showKeyboard(input); });
+  });
+}
+
+function showKeyboard(inputEl) {
+  kbActiveInput = inputEl;
+
+  // 高亮
+  document.querySelectorAll('.kb-input').forEach(el => el.classList.remove('kb-active'));
+  inputEl.classList.add('kb-active');
+
+  // 标题
+  const label = inputEl.closest('.form-group')?.querySelector('.form-label')?.childNodes[0]?.textContent?.trim();
+  document.getElementById('kbTitle').textContent = label || '输入数值';
+
+  // 显示
+  document.getElementById('kbMask').classList.add('show');
+  document.getElementById('customKeyboard').classList.add('show');
+
+  // 滚动到可视区域
+  setTimeout(() => {
+    inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+function hideKeyboard() {
+  document.getElementById('kbMask').classList.remove('show');
+  document.getElementById('customKeyboard').classList.remove('show');
+  if (kbActiveInput) {
+    kbActiveInput.classList.remove('kb-active');
+    kbActiveInput = null;
+  }
+}
+
+function kbInput(char) {
+  if (!kbActiveInput) return;
+  const type = kbActiveInput.dataset.type || 'number';
+  let val = kbActiveInput.value || '';
+
+  if (char === '.') {
+    if (type === 'int') return;
+    if (val.includes('.')) return;
+    if (val === '') val = '0';
+    val += '.';
+  } else if (char === '−') {
+    // 正负号切换
+    if (val.startsWith('-')) {
+      val = val.slice(1);
+    } else if (val !== '' && val !== '0') {
+      val = '-' + val;
+    }
+  } else {
+    // 数字
+    if (type === 'int') {
+      val = val.replace('.', '');
+    }
+    // 防止前导零
+    if (val === '0' && char !== '.') {
+      val = char;
+    } else if (val === '-0' && char !== '.') {
+      val = '-' + char;
+    } else {
+      val += char;
+    }
+  }
+
+  // 限制小数位
+  if (type === 'number' && val.includes('.')) {
+    const parts = val.split('.');
+    if (parts[1].length > 2) {
+      parts[1] = parts[1].slice(0, 2);
+      val = parts[0] + '.' + parts[1];
+    }
+  }
+
+  kbActiveInput.value = val;
+  saveData();
+  calculate();
+}
+
+function kbBackspace() {
+  if (!kbActiveInput) return;
+  let val = kbActiveInput.value || '';
+  if (val.length > 0) {
+    val = val.slice(0, -1);
+    kbActiveInput.value = val;
+    saveData();
+    calculate();
+  }
+}
+
+function kbClear() {
+  if (!kbActiveInput) return;
+  kbActiveInput.value = '';
+  saveData();
+  calculate();
+}
+
+function kbAddOne() {
+  if (!kbActiveInput) return;
+  const type = kbActiveInput.dataset.type || 'number';
+  let val = parseFloat(kbActiveInput.value) || 0;
+  val += 1;
+  if (type === 'int') {
+    kbActiveInput.value = Math.round(val).toString();
+  } else {
+    kbActiveInput.value = val.toFixed(2).replace(/\.?0+$/, '');
+  }
+  saveData();
+  calculate();
+}
+
+function kbAddTen() {
+  if (!kbActiveInput) return;
+  const type = kbActiveInput.dataset.type || 'number';
+  let val = parseFloat(kbActiveInput.value) || 0;
+  val += 10;
+  if (type === 'int') {
+    kbActiveInput.value = Math.round(val).toString();
+  } else {
+    kbActiveInput.value = val.toFixed(2).replace(/\.?0+$/, '');
+  }
+  saveData();
+  calculate();
+}
+
+function kbMinus() {
+  if (!kbActiveInput) return;
+  let val = kbActiveInput.value || '';
+  if (val.startsWith('-')) {
+    val = val.slice(1);
+  } else if (val !== '' && val !== '0') {
+    val = '-' + val;
+  }
+  kbActiveInput.value = val;
+  saveData();
+  calculate();
+}
+
+// =========================================
+//  体积档位选择
+// =========================================
+function selectSize(size) {
+  currentSize = size;
+  document.querySelectorAll('.size-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.size === size);
+  });
+  saveData();
+  calculate();
+}
+
+// =========================================
+//  滑块
+// =========================================
+function updateSlider() {
+  document.getElementById('probValue').textContent = document.getElementById('probability').value + '%';
+}
+
+// =========================================
+//  本地存储
+// =========================================
+function saveData() {
+  const data = {
+    costPrice: document.getElementById('costPrice').value,
+    shippingCost: document.getElementById('shippingCost').value,
+    currentPrice: document.getElementById('currentPrice').value,
+    inDate: document.getElementById('inDate').value,
+    size: currentSize,
+    maxLossRatio: document.getElementById('maxLossRatio').value,
+    expectedPrice: document.getElementById('expectedPrice').value,
+    expectedDays: document.getElementById('expectedDays').value,
+    probability: document.getElementById('probability').value
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    const data = JSON.parse(saved);
+
+    if (data.costPrice !== undefined)    document.getElementById('costPrice').value = data.costPrice;
+    if (data.shippingCost !== undefined) document.getElementById('shippingCost').value = data.shippingCost;
+    if (data.currentPrice !== undefined) document.getElementById('currentPrice').value = data.currentPrice;
+    if (data.inDate !== undefined)       document.getElementById('inDate').value = data.inDate;
+    if (data.maxLossRatio !== undefined) document.getElementById('maxLossRatio').value = data.maxLossRatio;
+    if (data.expectedPrice !== undefined) document.getElementById('expectedPrice').value = data.expectedPrice;
+    if (data.expectedDays !== undefined) document.getElementById('expectedDays').value = data.expectedDays;
+    if (data.probability !== undefined) {
+      document.getElementById('probability').value = data.probability;
+      document.getElementById('probValue').textContent = data.probability + '%';
+    }
+    if (data.size !== undefined) {
+      currentSize = data.size;
+      document.querySelectorAll('.size-option').forEach(el => {
+        el.classList.toggle('active', el.dataset.size === data.size);
+      });
+    }
+  } catch(e) {}
+}
+
+function resetAll() {
+  if (!confirm('确定要清空所有输入吗？')) return;
+
+  document.getElementById('costPrice').value = DEFAULTS.costPrice;
+  document.getElementById('shippingCost').value = DEFAULTS.shippingCost;
+  document.getElementById('currentPrice').value = DEFAULTS.currentPrice;
+  document.getElementById('inDate').value = DEFAULTS.inDate;
+  document.getElementById('maxLossRatio').value = DEFAULTS.maxLossRatio;
+  document.getElementById('expectedPrice').value = DEFAULTS.expectedPrice;
+  document.getElementById('expectedDays').value = DEFAULTS.expectedDays;
+  document.getElementById('probability').value = DEFAULTS.probability;
+  document.getElementById('probValue').textContent = DEFAULTS.probability + '%';
+
+  currentSize = DEFAULTS.size;
+  document.querySelectorAll('.size-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.size === DEFAULTS.size);
+  });
+
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch(e) {}
+
+  calculate();
+  goToTab(0);
+}
+
+// =========================================
+//  仓租计算（与 PC 版完全一致）
+// =========================================
+function calcStorage(startDay, endDay, rates) {
+  if (endDay < startDay) return 0;
+  let total = 0;
+  for (let d = startDay; d <= endDay; d++) {
+    if (d <= 35) {
+      total += rates.stage1;
+    } else if (d <= 90) {
+      total += rates.stage2;
+    } else {
+      total += rates.stage4;
+    }
+  }
+  return total;
+}
+
+function getDailyRate(day, rates) {
+  if (day < 1) return 0;
+  if (day <= 35) return rates.stage1;
+  if (day <= 90) return rates.stage2;
+  return rates.stage4;
+}
+
+function calcDeadline(targetAmount, rates) {
+  let total = 0;
+  for (let d = 1; d <= 365; d++) {
+    total += getDailyRate(d, rates);
+    if (total >= targetAmount) {
+      return { day: d, total: total };
+    }
+  }
+  return { day: 365, total: total };
+}
+
+function getDaysHeld() {
+  const inDateStr = document.getElementById('inDate').value;
+  if (!inDateStr) return 0;
+  const inDate = new Date(inDateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  inDate.setHours(0, 0, 0, 0);
+  const diff = Math.floor((today - inDate) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff;
+}
+
+// =========================================
+//  工具函数
+// =========================================
+function fmt(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return n.toFixed(2);
+}
+function fmtInt(n) {
+  if (isNaN(n) || !isFinite(n)) return '—';
+  return Math.round(n).toString();
+}
+
+// =========================================
+//  主计算函数
+// =========================================
+function calculate() {
+  const X = parseFloat(document.getElementById('costPrice').value);
+  const ship = parseFloat(document.getElementById('shippingCost').value) || 0;
+  const totalCost = X + ship;
+  const P0 = parseFloat(document.getElementById('currentPrice').value);
+  const Pt = parseFloat(document.getElementById('expectedPrice').value);
+  const t = parseFloat(document.getElementById('expectedDays').value);
+  const p = parseInt(document.getElementById('probability').value) / 100;
+  const maxLossRatio = parseInt(document.getElementById('maxLossRatio').value) / 100;
+
+  const rates = STORAGE_RATES[currentSize];
+  const held = getDaysHeld();
+
+  const resultArea = document.getElementById('resultArea');
+  const scenarioArea = document.getElementById('scenarioArea');
+
+  // 基础数据检查
+  if (isNaN(X) || isNaN(P0)) {
+    resultArea.innerHTML = '<div class="empty-state">请先在"输入"页填写参数<br><br>进货成本 + 当前可售价是必填项</div>';
+    scenarioArea.innerHTML = '<div class="empty-state">请先填写进货成本、当前售价和预期涨价后价格</div>';
+    return;
+  }
+
+  const currentLoss = totalCost - P0;
+  const storageSoFar = held > 0 ? calcStorage(1, held, rates) : 0;
+  const currentDailyRate = held > 0 ? getDailyRate(held, rates) : getDailyRate(1, rates);
+
+  const maxLossAmount = totalCost * maxLossRatio;
+  const deadlineResult = calcDeadline(maxLossAmount, rates);
+  const deadline = deadlineResult.day;
+
+  // === 结果区 ===
+  let verdictHTML = '';
+
+  if (!isNaN(Pt) && !isNaN(t) && t > 0) {
+    // 完整决策
+    const priceGain = Pt - P0;
+    const futureStorage = calcStorage(held + 1, held + t, rates);
+    const totalStorageIfRise = storageSoFar + futureStorage;
+    const profitIfRise = Pt - totalCost - totalStorageIfRise;
+    const lossIfNot = P0 - totalCost - totalStorageIfRise;
+    const expectedValue = p * profitIfRise + (1 - p) * lossIfNot;
+    const currentProfit = P0 - totalCost - storageSoFar;
+
+    const shouldHold = expectedValue > currentProfit;
+
+    const avgDailyRate = t > 0 ? futureStorage / t : currentDailyRate;
+    let maxDays = (p * priceGain) / avgDailyRate;
+    if (maxDays < 0) maxDays = 0;
+
+    let minPrice = P0 + futureStorage / p;
+    if (minPrice < P0) minPrice = P0;
+
+    let reason = '';
+    if (shouldHold) {
+      const diff = expectedValue - currentProfit;
+      reason = `持有期望收益（${fmt(expectedValue)}元）比现在卖（${fmt(currentProfit)}元）多赚 ${fmt(diff)} 元`;
+    } else {
+      const diff = currentProfit - expectedValue;
+      reason = `持有期望亏损（${fmt(Math.abs(expectedValue))}元）比现在卖（${fmt(currentProfit)}元）多亏 ${fmt(diff)} 元`;
+    }
+
+    const stage = held <= 0 ? '未入库' :
+                  held <= 35 ? '免费期' :
+                  held <= 90 ? '标准费率' : '高费率';
+
+    verdictHTML = `
+      <div class="card">
+        <div class="verdict ${shouldHold ? 'hold' : 'sell'}">
+          <div class="verdict-icon">${shouldHold ? '🟢' : '🔴'}</div>
+          <div class="verdict-text">${shouldHold ? '建议持有 · 等涨价' : '建议现在就卖 · 止损'}</div>
+          <div class="verdict-reason">${reason}</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">当前库龄</div>
+            <div class="stat-value">${held} 天</div>
+            <div class="stat-sub"><span class="stage-badge">${stage}</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">已付仓租</div>
+            <div class="stat-value loss">${fmt(storageSoFar)} 元</div>
+            <div class="stat-sub">当前 ${fmt(currentDailyRate)} 元/天</div>
+          </div>
+          <div class="stat-item" style="background:${currentProfit >= 0 ? '#e8f5e9' : '#ffebee'};">
+            <div class="stat-label">到今天总盈亏</div>
+            <div class="stat-value ${currentProfit >= 0 ? 'profit' : 'loss'}">${currentProfit >= 0 ? '+' : ''}${fmt(currentProfit)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">现在卖（不含仓租）</div>
+            <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${currentLoss > 0 ? '-'+fmt(currentLoss) : '+'+fmt(Math.abs(currentLoss))} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">持有期望盈亏</div>
+            <div class="stat-value ${expectedValue < 0 ? 'loss' : 'profit'}">${expectedValue < 0 ? '-'+fmt(Math.abs(expectedValue)) : '+'+fmt(expectedValue)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">等待期仓租（${t}天）</div>
+            <div class="stat-value loss">${fmt(futureStorage)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">按概率最多能等</div>
+            <div class="stat-value ${maxDays < t ? 'loss' : 'warning'}">约 ${fmtInt(maxDays)} 天</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">仓租死线</div>
+            <div class="stat-value loss">第 ${deadline} 天</div>
+            <div class="stat-sub">累计 ${fmt(deadlineResult.total)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">至少要涨到</div>
+            <div class="stat-value warning">${fmt(minPrice)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">总成本（含运费）</div>
+            <div class="stat-value">${fmt(totalCost)} 元</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    // 只有基础数据
+    const currentProfit = P0 - totalCost - storageSoFar;
+    const stage = held <= 0 ? '未入库' :
+                  held <= 35 ? '免费期' :
+                  held <= 90 ? '标准费率' : '高费率';
+
+    verdictHTML = `
+      <div class="card">
+        <div class="verdict ${currentLoss > 0 ? 'sell' : 'hold'}">
+          <div class="verdict-icon">${currentLoss > 0 ? '📉' : '📈'}</div>
+          <div class="verdict-text">${currentLoss > 0 ? '当前亏损中' : '当前盈利中'}</div>
+          <div class="verdict-reason">${currentLoss > 0 ? '现在卖亏 ' + fmt(currentLoss) + ' 元/件（不含仓租）' : '现在卖赚 ' + fmt(Math.abs(currentLoss)) + ' 元/件（不含仓租）'}</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">当前库龄</div>
+            <div class="stat-value">${held} 天</div>
+            <div class="stat-sub"><span class="stage-badge">${stage}</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">已付仓租</div>
+            <div class="stat-value loss">${fmt(storageSoFar)} 元</div>
+            <div class="stat-sub">当前 ${fmt(currentDailyRate)} 元/天</div>
+          </div>
+          <div class="stat-item" style="background:${currentProfit >= 0 ? '#e8f5e9' : '#ffebee'};">
+            <div class="stat-label">到今天总盈亏</div>
+            <div class="stat-value ${currentProfit >= 0 ? 'profit' : 'loss'}">${currentProfit >= 0 ? '+' : ''}${fmt(currentProfit)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">单件利润/亏损</div>
+            <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${currentLoss > 0 ? '-'+fmt(currentLoss) : '+'+fmt(Math.abs(currentLoss))} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">利润率</div>
+            <div class="stat-value ${currentLoss > 0 ? 'loss' : 'profit'}">${fmt((P0 - totalCost) / totalCost * 100)}%</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">仓租死线</div>
+            <div class="stat-value loss">第 ${deadline} 天</div>
+            <div class="stat-sub">累计 ${fmt(deadlineResult.total)} 元</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">总成本（含运费）</div>
+            <div class="stat-value">${fmt(totalCost)} 元</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; padding:12px; background:#f8f9fb; border-radius:8px; font-size:13px; color:#7f8c8d; line-height:1.6;">
+          💡 填写"涨价预期"可以得到更具体的持有/抛售建议
+        </div>
+      </div>
+    `;
+  }
+
+  // 死线提醒
+  if (held > 0) {
+    const daysLeft = deadline - held;
+    if (daysLeft <= 0) {
+      verdictHTML += `<div class="card"><div class="deadline-banner danger">⚠️ 仓租死线已超 ${held - deadline} 天（按 ${Math.round(maxLossRatio*100)}% 亏损算，第 ${deadline} 天到死线），注意止损！</div></div>`;
+    } else if (daysLeft <= 7) {
+      verdictHTML += `<div class="card"><div class="deadline-banner">⏰ 仓租死线还剩 ${daysLeft} 天（累计仓租将达 ${fmt(maxLossAmount)} 元），注意时间</div></div>`;
+    } else {
+      verdictHTML += `<div class="card"><div class="deadline-banner safe">✅ 仓租死线还剩 ${daysLeft} 天</div></div>`;
+    }
+  }
+
+  resultArea.innerHTML = verdictHTML;
+
+  // === 情景对比表 ===
+  if (isNaN(Pt)) {
+    scenarioArea.innerHTML = '<div class="empty-state">请先填写"预期涨价后价格"以生成情景对比</div>';
+    return;
+  }
+
+  const scenarios = [7, 15, 30, 45, 60, 90];
+  let tableHTML = `<div class="table-scroll"><table class="scenario-table"><thead><tr>
+    <th>再持有</th>
+    <th>总库龄</th>
+    <th>等待期仓租</th>
+    <th>累计总仓租</th>
+    <th>涨到目标的盈亏</th>
+    <th>没涨到的亏损</th>
+    <th>期望盈亏</th>
+    <th>决策</th>
+  </tr></thead><tbody>`;
+
+  for (const days of scenarios) {
+    const totalDay = held + days;
+    const futureStorage = calcStorage(held + 1, totalDay, rates);
+    const totalStorage = storageSoFar + futureStorage;
+    const profitRise = Pt - totalCost - totalStorage;
+    const lossNot = P0 - totalCost - totalStorage;
+    const expVal = p * profitRise + (1 - p) * lossNot;
+    const currentProf = P0 - totalCost - storageSoFar;
+    const isHold = expVal > currentProf;
+
+    let tagClass, tagText;
+    if (isHold) {
+      tagClass = 'hold';
+      tagText = '值得等';
+    } else if (Math.abs(expVal - currentProf) < 0.5) {
+      tagClass = 'warn';
+      tagText = '差不多';
+    } else {
+      tagClass = 'sell';
+      tagText = '不值得等';
+    }
+
+    tableHTML += `
+      <tr>
+        <td><strong>${days} 天</strong></td>
+        <td>${totalDay} 天</td>
+        <td>${fmt(futureStorage)} 元</td>
+        <td>${fmt(totalStorage)} 元</td>
+        <td style="color:${profitRise >= 0 ? '#27ae60' : '#e74c3c'}; font-weight:500;">
+          ${profitRise >= 0 ? '+' : ''}${fmt(profitRise)} 元
+        </td>
+        <td style="color:#e74c3c;">${fmt(lossNot)} 元</td>
+        <td style="font-weight:600; color:${expVal >= 0 ? '#27ae60' : '#e74c3c'};">
+          ${expVal >= 0 ? '+' : ''}${fmt(expVal)} 元
+        </td>
+        <td><span class="tag ${tagClass}">${tagText}</span></td>
+      </tr>
+    `;
+  }
+
+  tableHTML += `</tbody></table></div>`;
+  tableHTML += `
+    <div style="margin-top:14px; font-size:12px; color:#95a5a6; text-align:center; line-height:1.6;">
+      涨价把握 ${Math.round(p*100)}% · 目标价 ${fmt(Pt)} 元<br>
+      体积档位：${currentSize === 'small' ? '小件' : currentSize === 'medium' ? '中件' : '大件'}
+    </div>
+  `;
+
+  scenarioArea.innerHTML = tableHTML;
+}
+
+// =========================================
+//  授权系统
+// =========================================
+const _AUTH_SECRET = 'AdonisInventory2026';
+const _AUTH_STORAGE = 'ipc_auth_info';
+const _AUTH_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const _AUTH_CHARMAP = {};
+for (let _i = 0; _i < _AUTH_CHARSET.length; _i++) {
+  _AUTH_CHARMAP[_AUTH_CHARSET[_i]] = _i;
+}
+const _AUTH_TYPE = { '7': 7, 'M': 30 };
+const _AUTH_BLACKLIST = [];
+
+function _authHash(str, secret) {
+  let h = 0;
+  const s = secret + str + secret.split('').reverse().join('');
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h = h & 0x7fffffff;
+  }
+  return h;
+}
+
+function _authGenChecksum(type, numStr, secret) {
+  const h = _authHash(type + numStr, secret);
+  let result = '';
+  let n = h;
+  for (let i = 0; i < 3; i++) {
+    result += _AUTH_CHARSET[n % _AUTH_CHARSET.length];
+    n = Math.floor(n / _AUTH_CHARSET.length);
+  }
+  return result;
+}
+
+function _authVerify(code) {
+  code = (code || '').toUpperCase().trim();
+  if (code.length !== 8) return { valid: false, msg: '授权码长度不正确' };
+  const type = code[0];
+  if (!(type in _AUTH_TYPE)) return { valid: false, msg: '无效的授权码类型' };
+  for (let i = 1; i < 8; i++) {
+    if (!(code[i] in _AUTH_CHARMAP)) return { valid: false, msg: '授权码包含无效字符' };
+  }
+  const numStr = code.substring(1, 5);
+  const checksum = code.substring(5, 8);
+  const expected = _authGenChecksum(type, numStr, _AUTH_SECRET);
+  if (checksum !== expected) return { valid: false, msg: '授权码无效' };
+  if (_AUTH_BLACKLIST.indexOf(code) !== -1) return { valid: false, msg: '授权码已被冻结' };
+  return { valid: true, type: type, days: _AUTH_TYPE[type] };
+}
+
+function _authGetInfo() {
+  try {
+    const saved = localStorage.getItem(_AUTH_STORAGE);
+    if (!saved) return null;
+    return JSON.parse(saved);
+  } catch(e) { return null; }
+}
+
+function _authSaveInfo(info) {
+  try { localStorage.setItem(_AUTH_STORAGE, JSON.stringify(info)); } catch(e) {}
+}
+
+function _authCheck() {
+  const info = _authGetInfo();
+  if (!info) return false;
+  const now = Date.now();
+  if (now >= info.expiresAt) return false;
+  return info;
+}
+
+function activateAuth() {
+  const code = document.getElementById('authCode').value;
+  const errorEl = document.getElementById('authError');
+  const result = _authVerify(code);
+
+  if (!result.valid) {
+    errorEl.textContent = '❌ ' + result.msg;
+    return;
+  }
+
+  const now = Date.now();
+  const expiresAt = now + result.days * 24 * 60 * 60 * 1000;
+  const info = {
+    code: code,
+    type: result.type,
+    days: result.days,
+    activatedAt: now,
+    expiresAt: expiresAt
+  };
+  _authSaveInfo(info);
+
+  errorEl.style.color = '#27ae60';
+  errorEl.textContent = '✅ 激活成功！';
+
+  setTimeout(function() {
+    enterApp();
+  }, 800);
+}
+
+function enterApp() {
+  document.getElementById('authOverlay').classList.add('hidden');
+  updateAuthBadge();
+  initKeyboard();
+  loadData();
+  calculate();
+  updateTabUI();
+}
+
+function updateAuthBadge() {
+  const info = _authCheck();
+  const badge = document.getElementById('authBadge');
+  if (!info) {
+    badge.style.display = 'none';
+    return;
+  }
+  const daysLeft = Math.ceil((info.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+  const typeName = info.type === '7' ? '7天卡' : '月卡';
+  document.getElementById('authBadgeText').textContent = typeName + ' · 剩' + daysLeft + '天';
+  badge.style.display = 'block';
+}
+
+function showAuthInfo() {
+  const info = _authGetInfo();
+  if (!info) return;
+  const daysLeft = Math.ceil((info.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+  const typeName = info.type === '7' ? '7天体验卡' : '月卡';
+  const activateDate = new Date(info.activatedAt).toLocaleDateString();
+  const expireDate = new Date(info.expiresAt).toLocaleDateString();
+  alert(
+    '📋 授权信息\n' +
+    '——————\n' +
+    '卡类型：' + typeName + '\n' +
+    '授权码：' + info.code + '\n' +
+    '激活时间：' + activateDate + '\n' +
+    '到期时间：' + expireDate + '\n' +
+    '剩余天数：' + daysLeft + ' 天'
+  );
+}
+
+// 回车激活
+(function() {
+  var input = document.getElementById('authCode');
+  if (input) {
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') activateAuth();
+    });
+  }
+})();
+
+// 启动检查
+(function() {
+  var auth = _authCheck();
+  if (auth) {
+    enterApp();
+  }
+})();
+</script>
+
+</body>
+</html>
