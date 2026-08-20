@@ -430,7 +430,39 @@
     font-size: 12px;
     position: sticky;
     top: 0;
+    z-index: 1;
   }
+  /* 首列固定，横向滑动时行标签（7天/15天…）始终可见 */
+  .scenario-table th:first-child,
+  .scenario-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #fff;
+    border-right: 1px solid #eef1f5;
+  }
+  .scenario-table th:first-child {
+    background: #f8f9fb;
+    z-index: 3;
+  }
+  /* 右边缘渐变：提示还有更多列可滑动查看（到末尾时自动隐藏） */
+  .table-scroll.can-scroll-right {
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 34px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 34px), transparent 100%);
+  }
+  .table-scroll.at-end {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .table-hint {
+    display: none;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 11px;
+    color: #9aa8b6;
+    letter-spacing: 0.5px;
+  }
+  .table-hint.show { display: block; }
   .tag {
     display: inline-block;
     padding: 3px 10px;
@@ -772,6 +804,8 @@
     justify-content: center;
     box-shadow: 0 1px 1px rgba(0,0,0,0.1);
     transition: background 0.1s;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
   .kb-key:active { background: #dfe3e8; }
   .kb-key.operator {
@@ -849,7 +883,7 @@
         <li><strong>结果页：</strong>看决策结论和关键数据</li>
         <li><strong>对比页：</strong>查看多情景持有对比</li>
       </ul>
-      <div class="tip">💡 所有输入自动保存，刷新不丢数据。左右滑动或点底部 Tab 切换页面。</div>
+      <div class="tip">💡 所有输入自动保存，刷新不丢数据。点底部 Tab 切换页面。</div>
     </div>
 
     <div class="guide-section">
@@ -989,7 +1023,7 @@
         <div class="card-title">📈 涨价预期</div>
 
         <div class="form-group">
-          <label class="form-label">预期涨价后价格（元）<span class="form-hint">你觉得能涨到多少</span></label>
+          <label class="form-label">预期涨价后收入（元）<span class="form-hint">你觉得收入能涨到多少</span></label>
           <input type="text" class="form-input kb-input" id="expectedPrice" data-type="number" data-step="0.01" placeholder="例如：30.00" readonly unselectable="on">
         </div>
 
@@ -1037,7 +1071,7 @@
       <div class="card">
         <div class="card-title">📊 情景对比：持有不同天数</div>
         <div id="scenarioArea">
-          <div class="empty-state">请先填写进货成本、当前售价和预期涨价后价格</div>
+          <div class="empty-state">请先填写进货成本、当前售价和预期涨价后收入</div>
         </div>
       </div>
     </div>
@@ -1144,6 +1178,7 @@ function goToTab(index) {
   swiperWrapper.style.transform = `translateX(-${currentTab * (100 / 3)}%)`;
   updateTabUI();
   hideKeyboard();
+  updateScenarioScroll();
 }
 
 function updateTabUI() {
@@ -1153,76 +1188,10 @@ function updateTabUI() {
   document.getElementById('topbarTitle').textContent = TAB_TITLES[currentTab];
 }
 
-// 触摸事件
-swiperContainer.addEventListener('touchstart', (e) => {
-  if (swiperWrapper.scrollHeight > swiperContainer.clientHeight) {
-    // 允许内容滚动
-  }
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-  touchCurrentX = touchStartX;
-  isHorizontalSwipe = null;
-  isDragging = true;
-  dragStartTime = Date.now();
-  swiperWrapper.classList.add('dragging');
-}, { passive: true });
-
-swiperContainer.addEventListener('touchmove', (e) => {
-  if (!isDragging) return;
-
-  const dx = e.touches[0].clientX - touchStartX;
-  const dy = e.touches[0].clientY - touchStartY;
-
-  // 判断方向（第一次移动时确定）
-  if (isHorizontalSwipe === null) {
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-      isHorizontalSwipe = Math.abs(dx) > Math.abs(dy);
-    } else {
-      return;
-    }
-  }
-
-  if (!isHorizontalSwipe) return; // 纵向滚动，不拦截
-
-  touchCurrentX = e.touches[0].clientX;
-  e.preventDefault();
-
-  const slideWidth = swiperContainer.clientWidth;
-  const baseTranslate = -currentTab * slideWidth;
-  let offset = dx;
-
-  // 边界阻尼
-  if ((currentTab === 0 && dx > 0) || (currentTab === TOTAL_TABS - 1 && dx < 0)) {
-    offset = dx * 0.3;
-  }
-
-  swiperWrapper.style.transform = `translateX(${baseTranslate + offset}px)`;
-}, { passive: false });
-
-swiperContainer.addEventListener('touchend', (e) => {
-  if (!isDragging) return;
-  isDragging = false;
-  swiperWrapper.classList.remove('dragging');
-
-  if (!isHorizontalSwipe) return;
-
-  const dx = touchCurrentX - touchStartX;
-  const dt = Date.now() - dragStartTime;
-  const slideWidth = swiperContainer.clientWidth;
-  const velocity = dx / dt; // px/ms
-
-  let targetTab = currentTab;
-
-  if (Math.abs(velocity) > 0.3) {
-    // 快速滑动
-    targetTab = velocity > 0 ? currentTab - 1 : currentTab + 1;
-  } else if (Math.abs(dx) > slideWidth * 0.25) {
-    // 超过 1/4 宽度
-    targetTab = dx > 0 ? currentTab - 1 : currentTab + 1;
-  }
-
-  goToTab(targetTab);
-});
+// 触摸事件（已禁用左右滑动切换 Tab，仅保留底部 Tab 点击切换）
+// swiperContainer.addEventListener('touchstart', ...)
+// swiperContainer.addEventListener('touchmove', ...)
+// swiperContainer.addEventListener('touchend', ...)
 
 // =========================================
 //  自定义数字键盘
@@ -1234,6 +1203,20 @@ function initKeyboard() {
     input.addEventListener('click', () => showKeyboard(input));
     input.addEventListener('focus', (e) => { e.preventDefault(); showKeyboard(input); });
   });
+
+  // 阻止键盘区域双击缩放（iOS Safari）
+  const keyboard = document.getElementById('customKeyboard');
+  keyboard.addEventListener('dblclick', (e) => { e.preventDefault(); }, { passive: false });
+
+  // 防止快速连续点击触发双击缩放
+  let lastTap = 0;
+  keyboard.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTap <= 300) {
+      e.preventDefault();
+    }
+    lastTap = now;
+  }, { passive: false });
 }
 
 function showKeyboard(inputEl) {
@@ -1543,7 +1526,7 @@ function calculate() {
   // 基础数据检查
   if (isNaN(X) || isNaN(P0)) {
     resultArea.innerHTML = '<div class="empty-state">请先在"输入"页填写参数<br><br>进货成本 + 当前可售价是必填项</div>';
-    scenarioArea.innerHTML = '<div class="empty-state">请先填写进货成本、当前售价和预期涨价后价格</div>';
+    scenarioArea.innerHTML = '<div class="empty-state">请先填写进货成本、当前售价和预期涨价后收入</div>';
     return;
   }
 
@@ -1717,7 +1700,7 @@ function calculate() {
 
   // === 情景对比表 ===
   if (isNaN(Pt)) {
-    scenarioArea.innerHTML = '<div class="empty-state">请先填写"预期涨价后价格"以生成情景对比</div>';
+    scenarioArea.innerHTML = '<div class="empty-state">请先填写"预期涨价后收入"以生成情景对比</div>';
     return;
   }
 
@@ -1774,6 +1757,7 @@ function calculate() {
   }
 
   tableHTML += `</tbody></table></div>`;
+  tableHTML += `<div class="table-hint" id="tableHint">👈 左右滑动查看更多列 👉</div>`;
   tableHTML += `
     <div style="margin-top:14px; font-size:12px; color:#95a5a6; text-align:center; line-height:1.6;">
       涨价把握 ${Math.round(p*100)}% · 目标价 ${fmt(Pt)} 元<br>
@@ -1782,7 +1766,47 @@ function calculate() {
   `;
 
   scenarioArea.innerHTML = tableHTML;
+  updateScenarioScroll();
 }
+
+// =========================================
+//  情景对比表：横向滑动提示与边缘渐变
+// =========================================
+function updateScenarioScroll() {
+  const scroller = document.querySelector('.table-scroll');
+  if (!scroller) return;
+  const table = scroller.querySelector('.scenario-table');
+  const hint = document.getElementById('tableHint');
+  if (!table || !hint) return;
+
+  const hasOverflow = table.scrollWidth > scroller.clientWidth + 2;
+  hint.classList.toggle('show', hasOverflow);
+  if (!hasOverflow) {
+    scroller.classList.remove('can-scroll-right', 'at-end');
+    return;
+  }
+  scroller.classList.add('can-scroll-right');
+  refreshScenarioEdge(scroller);
+}
+
+function refreshScenarioEdge(scroller) {
+  const table = scroller.querySelector('.scenario-table');
+  if (!table) return;
+  const atEnd = scroller.scrollLeft >= table.scrollWidth - scroller.clientWidth - 2;
+  scroller.classList.toggle('at-end', atEnd);
+}
+
+// 横向滑动时实时更新边缘渐变（scroll 不冒泡，用捕获阶段监听）
+document.addEventListener('scroll', (e) => {
+  const scroller = e.target.closest && e.target.closest('.table-scroll');
+  if (scroller) refreshScenarioEdge(scroller);
+}, true);
+
+// 旋转 / 窗口尺寸变化后重新判断是否有溢出
+window.addEventListener('resize', () => {
+  clearTimeout(window.__scenarioResizeT);
+  window.__scenarioResizeT = setTimeout(updateScenarioScroll, 150);
+});
 
 // =========================================
 //  授权系统

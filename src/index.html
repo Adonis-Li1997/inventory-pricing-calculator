@@ -788,7 +788,7 @@
         <div class="section-title" style="margin: 0 0 14px;">📈 涨价预期</div>
 
         <div class="form-group">
-          <label>预期涨价后价格（元）<span class="hint">你觉得能涨到多少</span></label>
+          <label>预期涨价后收入（元）<span class="hint">你觉得收入能涨到多少</span></label>
           <input type="number" id="expectedPrice" step="0.01" placeholder="例如：30.00" oninput="saveData(); calculate()">
         </div>
 
@@ -833,7 +833,7 @@
   <div class="card">
     <h2>📊 情景对比：持有不同天数的结果</h2>
     <div id="scenarioArea">
-      <div class="empty-state">请先填写进货成本、当前售价和预期涨价后价格</div>
+      <div class="empty-state">请先填写进货成本、当前售价和预期涨价后收入</div>
     </div>
   </div>
 </div>
@@ -1061,7 +1061,7 @@ function calculate() {
   // 基础数据有没有
   if (isNaN(X) || isNaN(P0)) {
     resultArea.innerHTML = '<div class="empty-state">请填写进货成本、当前可售价</div>';
-    scenarioArea.innerHTML = '<div class="empty-state">请填写进货成本、当前售价和预期涨价后价格</div>';
+    scenarioArea.innerHTML = '<div class="empty-state">请填写进货成本、当前售价和预期涨价后收入</div>';
     return;
   }
 
@@ -1248,7 +1248,7 @@ function calculate() {
 
   // === 情景对比表 ===
   if (isNaN(Pt)) {
-    scenarioArea.innerHTML = '<div class="empty-state">请填写"预期涨价后价格"以生成情景对比</div>';
+    scenarioArea.innerHTML = '<div class="empty-state">请填写"预期涨价后收入"以生成情景对比</div>';
     return;
   }
 
